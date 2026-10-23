@@ -30,6 +30,7 @@ public class TransacaoService {
     private final TransacaoRepository transacaoRepository;
     private final ContaRepository contaRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PixKeyService pixKeyService;   // ← ESTA LINHA FALTAVA
 
     @Transactional
     public Transacao transferir(Usuario usuario, TransferenciaDTO dto) {
@@ -119,9 +120,6 @@ public class TransacaoService {
                 .build();
         return transacaoRepository.save(t);
     }
-
-    // no topo, injete também:
-// private final PixKeyService pixKeyService;
 
     /** Resolve destino: tenta PIX key; se não achar, tenta número de conta. */
     private Conta resolverDestino(String identificador) {
