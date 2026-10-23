@@ -4,17 +4,34 @@
     <meta charset="UTF-8">
     <title>Dashboard · AWOS Bank</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
-<body class="bg-light">
+<body>
 
+<!-- NAVBAR -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container">
-        <a class="navbar-brand fw-bold" th:href="@{/dashboard}">🏦 AWOS Bank</a>
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" th:href="@{/dashboard}">
+            <i class="bi bi-bank2"></i> AWOS Bank
+        </a>
         <div class="d-flex align-items-center gap-3">
-            <span class="text-white small" th:text="${usuario.nomeCompleto}"></span>
+            <button type="button" class="notification-btn" title="Notificações">
+                <i class="bi bi-bell"></i>
+                <span class="badge-dot"></span>
+            </button>
+
+            <div class="d-flex align-items-center gap-2">
+                <div class="user-avatar" th:text="${usuario.iniciais}">CT</div>
+                <span class="text-white small d-none d-md-inline"
+                      th:text="${usuario.primeiroNome}">Cliente</span>
+            </div>
+
             <form th:action="@{/logout}" method="post" class="m-0">
-                <button class="btn btn-sm btn-outline-light">Sair</button>
+                <button class="btn btn-sm btn-outline-light" title="Sair">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="d-none d-md-inline ms-1">Sair</span>
+                </button>
             </form>
         </div>
     </div>
@@ -24,43 +41,63 @@
     <div th:if="${sucesso}" class="alert alert-success" th:text="${sucesso}"></div>
     <div th:if="${erro}" class="alert alert-danger" th:text="${erro}"></div>
 
+    <!-- CARDS -->
     <div class="row g-3 mb-4">
         <div class="col-md-6">
-            <div class="card card-saldo text-white shadow-sm border-0">
-                <div class="card-body">
+            <div class="card card-saldo text-white">
+                <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <small class="opacity-75">Saldo disponível</small>
-                            <h2 class="mt-2 mb-0" id="saldo"
+                            <small class="opacity-75 text-uppercase" style="letter-spacing:1px;font-size:0.75rem;">
+                                Saldo disponível
+                            </small>
+                            <h2 class="mt-2 mb-0 fw-bold" id="saldo"
                                 th:attr="data-real=${@formatador.moeda(conta.saldo)}"
                                 th:text="${@formatador.moeda(conta.saldo)}">R$ 0,00</h2>
                         </div>
-                        <button class="btn btn-sm btn-light" onclick="toggleSaldo()">👁️</button>
+                        <button type="button" class="btn btn-sm btn-light toggle-eye" onclick="toggleSaldo(this)" title="Mostrar/ocultar">
+                            <i class="bi bi-eye"></i>
+                        </button>
                     </div>
                     <hr class="border-light opacity-25">
-                    <small>Ag. <span th:text="${conta.agencia}"></span> · Conta
-                        <span th:text="${conta.numeroConta}"></span> ·
+                    <small class="opacity-90">
+                        Ag. <span th:text="${conta.agencia}"></span> ·
+                        Conta <span th:text="${conta.numeroConta}"></span> ·
                         <span th:text="${conta.tipoConta.descricao}"></span>
                     </small>
                 </div>
             </div>
         </div>
+
         <div class="col-md-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <h6 class="text-muted">Ações rápidas</h6>
-                    <div class="row g-2 mt-2">
+            <div class="card h-100">
+                <div class="card-body p-4">
+                    <h6 class="text-uppercase mb-3"
+                        style="font-size:0.75rem;letter-spacing:1px;color: var(--text-muted);">
+                        Ações rápidas
+                    </h6>
+                    <div class="row g-2">
                         <div class="col-6">
-                            <a th:href="@{/transferencia}" class="btn btn-outline-primary w-100">💸 Transferir</a>
+                            <a th:href="@{/transferencia}" class="btn btn-primary action-btn w-100">
+                                <i class="bi bi-arrow-left-right"></i> Transferir
+                            </a>
                         </div>
                         <div class="col-6">
-                            <a th:href="@{/extrato}" class="btn btn-outline-secondary w-100">📄 Extrato</a>
+                            <a th:href="@{/extrato}" class="btn btn-primary action-btn w-100">
+                                <i class="bi bi-file-text"></i> Extrato
+                            </a>
                         </div>
                         <div class="col-6">
-                            <button class="btn btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#modalDeposito">➕ Depositar</button>
+                            <button class="btn btn-primary action-btn w-100"
+                                    data-bs-toggle="modal" data-bs-target="#modalDeposito">
+                                <i class="bi bi-plus-circle"></i> Depositar
+                            </button>
                         </div>
                         <div class="col-6">
-                            <button class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#modalSaque">➖ Sacar</button>
+                            <button class="btn btn-primary action-btn w-100"
+                                    data-bs-toggle="modal" data-bs-target="#modalSaque">
+                                <i class="bi bi-dash-circle"></i> Sacar
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -68,15 +105,28 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-0">
-        <div class="card-body">
-            <div class="d-flex justify-content-between mb-3">
-                <h5 class="mb-0">Últimas movimentações</h5>
-                <a th:href="@{/extrato}" class="small">Ver extrato completo</a>
+    <!-- ÚLTIMAS MOVIMENTAÇÕES -->
+    <div class="card">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 fw-bold">Últimas movimentações</h5>
+                <a th:href="@{/extrato}" class="small text-decoration-none fw-semibold"
+                   style="color: var(--primary-color);">
+                    Ver extrato completo <i class="bi bi-arrow-right"></i>
+                </a>
             </div>
-            <div class="table-responsive">
+
+            <!-- EMPTY STATE -->
+            <div th:if="${#lists.isEmpty(ultimas)}" class="empty-state">
+                <i class="bi bi-wallet2"></i>
+                <p>Nenhuma movimentação ainda</p>
+                <small>Suas transações aparecerão aqui.</small>
+            </div>
+
+            <!-- TABELA -->
+            <div class="table-responsive" th:if="${!#lists.isEmpty(ultimas)}">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                    <thead>
                     <tr>
                         <th>Data</th>
                         <th>Descrição</th>
@@ -86,21 +136,24 @@
                     </tr>
                     </thead>
                     <tbody>
-                    <tr th:if="${#lists.isEmpty(ultimas)}">
-                        <td colspan="5" class="text-center text-muted py-3">Nenhuma movimentação ainda.</td>
-                    </tr>
                     <tr th:each="v : ${ultimas}">
                         <td th:text="${#temporals.format(v.transacao.dataHora, 'dd/MM/yyyy HH:mm')}"></td>
                         <td th:text="${v.descricao}"></td>
-                        <td th:text="${v.transacao.tipo.descricao}"></td>
+                        <td>
+                            <span class="badge rounded-pill"
+                                  style="background-color: var(--primary-light); color: var(--primary-color);"
+                                  th:text="${v.transacao.tipo.descricao}"></span>
+                        </td>
                         <td class="text-end fw-bold"
                             th:classappend="${v.entrada} ? 'text-success' : 'text-danger'">
                             <span th:text="${v.entrada} ? '+ ' : '- '"></span>
                             <span th:text="${@formatador.moeda(v.transacao.valor)}"></span>
                         </td>
                         <td>
-                            <a class="btn btn-sm btn-link"
-                               th:href="@{'/comprovante/' + ${v.transacao.comprovanteCodigo}}">comprovante</a>
+                            <a class="btn btn-sm btn-link text-decoration-none"
+                               th:href="@{'/comprovante/' + ${v.transacao.comprovanteCodigo}}">
+                                <i class="bi bi-receipt"></i>
+                            </a>
                         </td>
                     </tr>
                     </tbody>
@@ -110,37 +163,49 @@
     </div>
 </div>
 
-<!-- Modal Depósito -->
+<!-- MODAL DEPÓSITO -->
 <div class="modal fade" id="modalDeposito" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <form th:action="@{/deposito}" method="post" class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Depositar</h5>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Depositar</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label">Valor</label>
-                <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+                <label class="form-label small fw-semibold">Valor</label>
+                <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="submit" class="btn btn-success">Depositar</button>
+            <div class="modal-footer border-0 pt-0">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i> Depositar
+                </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal Saque -->
+<!-- MODAL SAQUE -->
 <div class="modal fade" id="modalSaque" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <form th:action="@{/saque}" method="post" class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Sacar</h5>
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Sacar</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label">Valor</label>
-                <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+                <label class="form-label small fw-semibold">Valor</label>
+                <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="submit" class="btn btn-warning">Sacar</button>
+            <div class="modal-footer border-0 pt-0">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-dash-circle me-1"></i> Sacar
+                </button>
             </div>
         </form>
     </div>
@@ -148,12 +213,21 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function toggleSaldo() {
+    function toggleSaldo(btn) {
         const el = document.getElementById('saldo');
-        const real = el.getAttribute('data-real');
-        const oculto = el.getAttribute('data-oculto') === 'true';
-        el.textContent = oculto ? real : '••••••';
-        el.setAttribute('data-oculto', !oculto);
+        const icon = btn.querySelector('i');
+
+        el.style.opacity = '0';
+        btn.classList.toggle('rotated');
+
+        setTimeout(() => {
+            const real = el.getAttribute('data-real');
+            const oculto = el.getAttribute('data-oculto') === 'true';
+            el.textContent = oculto ? real : '••••••••';
+            el.setAttribute('data-oculto', !oculto);
+            el.style.opacity = '1';
+            icon.className = oculto ? 'bi bi-eye-slash' : 'bi bi-eye';
+        }, 180);
     }
 </script>
 </body>

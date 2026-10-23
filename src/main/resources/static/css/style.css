@@ -1,6 +1,230 @@
-.card-saldo {
-    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+/* ============================================================
+   AWOS Bank — Style Sheet
+   ============================================================ */
+
+:root {
+    --primary-color: #0052FF;
+    --primary-hover: #0040cc;
+    --primary-light: #e6efff;
+    --bg-color: #F8F9FA;
+    --card-bg: #FFFFFF;
+    --text-main: #212529;
+    --text-muted: #6C757D;
+    --border-color: #e5e7eb;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.08);
+    --transition: all 0.25s ease;
 }
+
+/* ---------- Base ---------- */
 body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+}
+
+/* ---------- Cards ---------- */
+.card {
+    border: none;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+}
+
+.card-saldo {
+    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+}
+
+/* ---------- Inputs com ícone ---------- */
+.form-icon-group {
+    position: relative;
+}
+
+.form-icon-group .bi {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    pointer-events: none;
+    transition: var(--transition);
+}
+
+.form-icon-group .form-control {
+    padding-left: 42px;
+    height: 48px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: #fdfdfd;
+    transition: var(--transition);
+}
+
+.form-icon-group .form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(0, 82, 255, 0.12);
+    background-color: #fff;
+}
+
+.form-icon-group:focus-within .bi {
+    color: var(--primary-color);
+}
+
+/* ---------- Botões ---------- */
+.btn {
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+    box-shadow: 0 8px 20px rgba(0, 82, 255, 0.25);
+}
+
+/* Botões de ação rápida padronizados */
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 82, 255, 0.18);
+}
+
+.action-btn i {
+    font-size: 1.15rem;
+}
+
+/* ---------- Navbar ---------- */
+.user-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.notification-btn {
+    position: relative;
+    color: #fff;
+    font-size: 1.2rem;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    transition: var(--transition);
+}
+
+.notification-btn:hover {
+    color: #dbe4ff;
+}
+
+.notification-btn .badge-dot {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background-color: #ff3b30;
+    border-radius: 50%;
+    border: 2px solid var(--primary-color);
+}
+
+/* ---------- Saldo (toggle suave) ---------- */
+#saldo {
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+#saldo.oculto {
+    filter: blur(6px);
+    opacity: 0.7;
+}
+
+.toggle-eye {
+    transition: transform 0.25s ease;
+}
+
+.toggle-eye.rotated {
+    transform: rotate(180deg);
+}
+
+/* ---------- Empty state ---------- */
+.empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state i {
+    font-size: 3.5rem;
+    opacity: 0.25;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-main);
+    opacity: 0.7;
+}
+
+.empty-state small {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+/* ---------- Botão de teste (discreto) ---------- */
+.btn-test-fill {
+    background: none;
+    border: 1px dashed var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.btn-test-fill:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background-color: var(--primary-light);
+}
+
+/* ---------- Tabelas ---------- */
+.table > :not(caption) > * > * {
+    border-color: var(--border-color);
+}
+
+.table thead th {
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
 }

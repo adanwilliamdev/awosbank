@@ -4,43 +4,92 @@
     <meta charset="UTF-8">
     <title>Login · AWOS Bank</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
-<body class="bg-light d-flex align-items-center" style="min-height:100vh;">
+<body class="d-flex align-items-center" style="min-height:100vh;">
 <div class="container" style="max-width:420px;">
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-4">
+    <div class="card" style="box-shadow: var(--shadow-lg); border-radius: var(--radius);">
+        <div class="card-body p-4 p-md-5">
+
             <div class="text-center mb-4">
-                <h3 class="fw-bold text-primary">🏦 AWOS Bank</h3>
-                <p class="text-muted mb-0">Acesse sua conta</p>
+                <div class="mb-3 d-inline-flex align-items-center justify-content-center"
+                     style="width:64px;height:64px;border-radius:16px;
+                            background:linear-gradient(135deg,#0d6efd,#6610f2);">
+                    <i class="bi bi-bank2 text-white" style="font-size:1.7rem;"></i>
+                </div>
+                <h4 class="fw-bold mb-1" style="color: var(--text-main);">AWOS Bank</h4>
+                <p class="text-muted small mb-0">Acesse sua conta com segurança</p>
             </div>
 
-            <div th:if="${param.error}" class="alert alert-danger py-2">Email ou senha inválidos.</div>
-            <div th:if="${param.logout}" class="alert alert-success py-2">Logout realizado.</div>
-            <div th:if="${sucesso}" class="alert alert-success py-2" th:text="${sucesso}"></div>
+            <div th:if="${param.error}" class="alert alert-danger py-2 small">Email ou senha inválidos.</div>
+            <div th:if="${param.logout}" class="alert alert-success py-2 small">Logout realizado com sucesso.</div>
+            <div th:if="${sucesso}" class="alert alert-success py-2 small" th:text="${sucesso}"></div>
 
-            <form th:action="@{/login}" method="post">
+            <form th:action="@{/login}" method="post" id="loginForm">
                 <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="username" class="form-control" required autofocus>
+                    <label class="form-label small fw-semibold">Email</label>
+                    <div class="form-icon-group">
+                        <i class="bi bi-envelope"></i>
+                        <input type="email" name="username" id="inputEmail"
+                               class="form-control" placeholder="seu@email.com" required autofocus>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Senha</label>
-                    <input type="password" name="password" class="form-control" required>
+
+                <div class="mb-4">
+                    <label class="form-label small fw-semibold">Senha</label>
+                    <div class="form-icon-group">
+                        <i class="bi bi-lock"></i>
+                        <input type="password" name="password" id="inputSenha"
+                               class="form-control" placeholder="••••••••" required>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+
+                <button type="submit" class="btn btn-primary w-100" style="height:48px;">
+                    Entrar
+                </button>
             </form>
 
-            <hr>
-            <p class="text-center mb-0">
+            <div class="text-center mt-3">
+                <button type="button" class="btn-test-fill" onclick="preencherTeste()">
+                    <i class="bi bi-lightning-charge me-1"></i> Preencher dados de teste
+                </button>
+            </div>
+
+            <hr class="my-4">
+
+            <p class="text-center mb-0 small">
                 Não tem conta?
-                <a th:href="@{/cadastro}">Cadastre-se</a>
+                <a th:href="@{/cadastro}" class="fw-semibold text-decoration-none"
+                   style="color: var(--primary-color);">Cadastre-se</a>
             </p>
         </div>
     </div>
-    <p class="text-center text-muted small mt-3 mb-0">
-        Teste: <code>cliente@awosbank.com</code> / <code>123456</code>
-    </p>
 </div>
+
+<script>
+    function preencherTeste() {
+        const email = document.getElementById('inputEmail');
+        const senha = document.getElementById('inputSenha');
+
+        email.value = '';
+        senha.value = '';
+
+        const login = 'cliente@awosbank.com';
+        const pass = '123456';
+        let i = 0, j = 0;
+
+        const typeEmail = setInterval(() => {
+            email.value = login.substring(0, ++i);
+            if (i === login.length) {
+                clearInterval(typeEmail);
+                const typePass = setInterval(() => {
+                    senha.value = pass.substring(0, ++j);
+                    if (j === pass.length) clearInterval(typePass);
+                }, 40);
+            }
+        }, 30);
+    }
+</script>
 </body>
 </html>

@@ -40,4 +40,20 @@ public class Usuario {
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "conta_id", referencedColumnName = "id")
     private Conta conta;
+
+    /** Retorna as iniciais do usuário: "Cliente de Teste" → "CT" */
+    public String getIniciais() {
+        if (nomeCompleto == null || nomeCompleto.isBlank()) return "?";
+        String[] partes = nomeCompleto.trim().split("\\s+");
+        if (partes.length == 1) {
+            return partes[0].substring(0, 1).toUpperCase();
+        }
+        return (partes[0].substring(0, 1) + partes[partes.length - 1].substring(0, 1)).toUpperCase();
+    }
+
+    /** Retorna o primeiro nome: "Cliente de Teste" → "Cliente" */
+    public String getPrimeiroNome() {
+        if (nomeCompleto == null || nomeCompleto.isBlank()) return "";
+        return nomeCompleto.trim().split("\\s+")[0];
+    }
 }
