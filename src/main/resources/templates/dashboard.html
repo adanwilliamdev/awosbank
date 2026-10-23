@@ -270,30 +270,64 @@
 <script th:src="@{/js/app.js}"></script>
 <script th:inline="javascript">
     // ===== Chart =====
-    const labels  = /*[[${chart.labels}]]*/ [];
-    const entradas = /*[[${chart.entradas}]]*/ [];
-    const saidas  = /*[[${chart.saidas}]]*/ [];
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('graficoMov');
+        if (!canvas) return;
 
-    new Chart(document.getElementById('graficoMov'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { label: 'Entradas', data: entradas, backgroundColor: '#10b981', borderRadius: 6 },
-                { label: 'Saídas',   data: saidas,   backgroundColor: '#ef4444', borderRadius: 6 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top', labels: { usePointStyle: true } },
-                tooltip: { callbacks: { label: c => c.dataset.label + ': ' + formatBRL(c.parsed.y) } }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { callback: v => formatBRL(v) } }
-            }
+        // Pega os dados do Thymeleaf
+        const rawLabels  = /*[[${chart.labels}]]*/ [];
+        const rawEntradas = /*[[${chart.entradas}]]*/ [];
+        const rawSaidas  = /*[[${chart.saidas}]]*/ [];
+
+        // Converte os valores para Number (evita erro de BigDecimal -> String)
+        const labels = rawLabels;
+        const entradas = rawEntradas.map(Number);
+        const saidas = rawSaidas.map(Number);
+
+        // Se não houver dados, mostra um aviso (opcional)
+        if (labels.length === 0) {
+            canvas.parentElement.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-bar-chart" style="font-size:3rem;opacity:0.3;"></i><p class="mt-2">Sem dados para exibir no gráfico.</p></div>';
+            return;
         }
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Entradas',
+                        data: entradas,
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Saídas',
+                        data: saidas,
+                        backgroundColor: '#ef4444',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true } },
+                    tooltip: {
+                        callbacks: {
+                            label: c => c.dataset.label + ': ' + formatBRL(c.parsed.y)
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => formatBRL(v) }
+                    }
+                }
+            }
+        });
     });
 
     // ===== Ações via AJAX =====
