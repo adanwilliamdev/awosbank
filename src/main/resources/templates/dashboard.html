@@ -7,55 +7,28 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
-<body>
+<body class="bg-light">
 
-<!-- NAVBAR -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" th:href="@{/dashboard}">
-            <i class="bi bi-bank2"></i> AWOS Bank
-        </a>
-        <div class="d-flex align-items-center gap-3">
-            <button type="button" class="notification-btn" title="Notificações">
-                <i class="bi bi-bell"></i>
-                <span class="badge-dot"></span>
-            </button>
-
-            <div class="d-flex align-items-center gap-2">
-                <div class="user-avatar" th:text="${usuario.iniciais}">CT</div>
-                <span class="text-white small d-none d-md-inline"
-                      th:text="${usuario.primeiroNome}">Cliente</span>
-            </div>
-
-            <form th:action="@{/logout}" method="post" class="m-0">
-                <button class="btn btn-sm btn-outline-light" title="Sair">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span class="d-none d-md-inline ms-1">Sair</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</nav>
+<div th:replace="~{fragments/layout :: navbar(${usuario}, 'dashboard')}"></div>
+<div th:replace="~{fragments/layout :: toasts}"></div>
 
 <div class="container my-4">
-    <div th:if="${sucesso}" class="alert alert-success" th:text="${sucesso}"></div>
-    <div th:if="${erro}" class="alert alert-danger" th:text="${erro}"></div>
 
-    <!-- CARDS -->
+    <!-- Saldo + Ações -->
     <div class="row g-3 mb-4">
         <div class="col-md-6">
             <div class="card card-saldo text-white">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <small class="opacity-75 text-uppercase" style="letter-spacing:1px;font-size:0.75rem;">
-                                Saldo disponível
-                            </small>
+                            <small class="opacity-75 text-uppercase"
+                                   style="letter-spacing:1px;font-size:0.75rem;">Saldo disponível</small>
                             <h2 class="mt-2 mb-0 fw-bold" id="saldo"
                                 th:attr="data-real=${@formatador.moeda(conta.saldo)}"
                                 th:text="${@formatador.moeda(conta.saldo)}">R$ 0,00</h2>
                         </div>
-                        <button type="button" class="btn btn-sm btn-light toggle-eye" onclick="toggleSaldo(this)" title="Mostrar/ocultar">
+                        <button type="button" class="btn btn-sm btn-light toggle-eye"
+                                onclick="toggleSaldo(this)">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
@@ -71,33 +44,29 @@
 
         <div class="col-md-6">
             <div class="card h-100">
-                <div class="card-body p-4">
-                    <h6 class="text-uppercase mb-3"
-                        style="font-size:0.75rem;letter-spacing:1px;color: var(--text-muted);">
-                        Ações rápidas
-                    </h6>
+                <div class="card-body p-3">
+                    <h6 class="text-uppercase mb-2"
+                        style="font-size:0.75rem;letter-spacing:1px;color:var(--text-muted);">Ações rápidas</h6>
                     <div class="row g-2">
-                        <div class="col-6">
-                            <a th:href="@{/transferencia}" class="btn btn-primary action-btn w-100">
+                        <div class="col-6 col-md-3">
+                            <button class="quick-action" data-bs-toggle="modal" data-bs-target="#modalTransferir">
                                 <i class="bi bi-arrow-left-right"></i> Transferir
-                            </a>
+                            </button>
                         </div>
-                        <div class="col-6">
-                            <a th:href="@{/extrato}" class="btn btn-primary action-btn w-100">
-                                <i class="bi bi-file-text"></i> Extrato
-                            </a>
-                        </div>
-                        <div class="col-6">
-                            <button class="btn btn-primary action-btn w-100"
-                                    data-bs-toggle="modal" data-bs-target="#modalDeposito">
+                        <div class="col-6 col-md-3">
+                            <button class="quick-action" data-bs-toggle="modal" data-bs-target="#modalDeposito">
                                 <i class="bi bi-plus-circle"></i> Depositar
                             </button>
                         </div>
-                        <div class="col-6">
-                            <button class="btn btn-primary action-btn w-100"
-                                    data-bs-toggle="modal" data-bs-target="#modalSaque">
+                        <div class="col-6 col-md-3">
+                            <button class="quick-action" data-bs-toggle="modal" data-bs-target="#modalSaque">
                                 <i class="bi bi-dash-circle"></i> Sacar
                             </button>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <a href="/extrato" class="quick-action">
+                                <i class="bi bi-file-text"></i> Extrato
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -105,55 +74,64 @@
         </div>
     </div>
 
-    <!-- ÚLTIMAS MOVIMENTAÇÕES -->
+    <!-- Gráfico -->
+    <div class="card mb-4">
+        <div class="card-body p-4">
+            <h5 class="fw-bold mb-3">Entradas × Saídas (últimos 6 meses)</h5>
+            <div class="chart-wrapper">
+                <canvas id="graficoMov"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimas movimentações -->
     <div class="card">
         <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0 fw-bold">Últimas movimentações</h5>
-                <a th:href="@{/extrato}" class="small text-decoration-none fw-semibold"
-                   style="color: var(--primary-color);">
+                <a href="/extrato" class="small fw-semibold text-decoration-none"
+                   style="color:var(--primary-color);">
                     Ver extrato completo <i class="bi bi-arrow-right"></i>
                 </a>
             </div>
 
-            <!-- EMPTY STATE -->
             <div th:if="${#lists.isEmpty(ultimas)}" class="empty-state">
                 <i class="bi bi-wallet2"></i>
                 <p>Nenhuma movimentação ainda</p>
                 <small>Suas transações aparecerão aqui.</small>
             </div>
 
-            <!-- TABELA -->
-            <div class="table-responsive" th:if="${!#lists.isEmpty(ultimas)}">
+            <div class="table-responsive" th:unless="${#lists.isEmpty(ultimas)}">
                 <table class="table table-hover align-middle mb-0">
-                    <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Descrição</th>
-                        <th>Tipo</th>
-                        <th class="text-end">Valor</th>
-                        <th></th>
-                    </tr>
-                    </thead>
+                    <thead><tr>
+                        <th>Data</th><th>Descrição</th><th>Tipo</th>
+                        <th class="text-end">Valor</th><th></th>
+                    </tr></thead>
                     <tbody>
                     <tr th:each="v : ${ultimas}">
-                        <td th:text="${#temporals.format(v.transacao.dataHora, 'dd/MM/yyyy HH:mm')}"></td>
-                        <td th:text="${v.descricao}"></td>
+                        <td th:text="${#temporals.format(v.transacao.dataHora,'dd/MM/yyyy HH:mm')}"></td>
                         <td>
-                            <span class="badge rounded-pill"
-                                  style="background-color: var(--primary-light); color: var(--primary-color);"
-                                  th:text="${v.transacao.tipo.descricao}"></span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="mov-icone" th:classappend="${v.entrada}?'entrada':'saida'">
+                                    <i class="bi" th:classappend="${v.entrada}?'bi-arrow-down-left':'bi-arrow-up-right'"></i>
+                                </span>
+                                <span th:text="${v.descricao}"></span>
+                            </div>
                         </td>
+                        <td><span class="badge rounded-pill"
+                                  style="background-color:var(--primary-light);color:var(--primary-color);"
+                                  th:text="${v.transacao.tipo.descricao}"></span></td>
                         <td class="text-end fw-bold"
-                            th:classappend="${v.entrada} ? 'text-success' : 'text-danger'">
-                            <span th:text="${v.entrada} ? '+ ' : '- '"></span>
+                            th:classappend="${v.entrada}?'text-success':'text-danger'">
+                            <span th:text="${v.entrada}?'+ ':'- '"></span>
                             <span th:text="${@formatador.moeda(v.transacao.valor)}"></span>
                         </td>
                         <td>
-                            <a class="btn btn-sm btn-link text-decoration-none"
-                               th:href="@{'/comprovante/' + ${v.transacao.comprovanteCodigo}}">
+                            <button type="button" class="recibo-btn"
+                                    th:attr="onclick='abrirComprovante(\''+${v.transacao.comprovanteCodigo}+'\')'"
+                                    title="Ver comprovante">
                                 <i class="bi bi-receipt"></i>
-                            </a>
+                            </button>
                         </td>
                     </tr>
                     </tbody>
@@ -163,71 +141,195 @@
     </div>
 </div>
 
-<!-- MODAL DEPÓSITO -->
+<!-- MODAL TRANSFERIR -->
+<div class="modal fade" id="modalTransferir" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Transferir</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Tipo</label>
+                    <select id="tr-tipo" class="form-select">
+                        <option value="PIX">PIX</option>
+                        <option value="TED">TED</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Chave PIX ou conta destino</label>
+                    <input id="tr-destino" type="text" class="form-control"
+                           placeholder="ex: 123456-7 ou chave PIX">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Valor (R$)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input id="tr-valor" type="number" step="0.01" min="0.01" class="form-control">
+                    </div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label small fw-semibold">Senha</label>
+                    <input id="tr-senha" type="password" class="form-control" placeholder="Sua senha">
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary w-100"
+                        onclick="executarTransferencia()">
+                    <i class="bi bi-check2-circle me-1"></i> Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DEPOSITAR -->
 <div class="modal fade" id="modalDeposito" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form th:action="@{/deposito}" method="post" class="modal-content">
+        <div class="modal-content">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold">Depositar</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label small fw-semibold">Valor</label>
+                <label class="form-label small fw-semibold">Valor (R$)</label>
                 <div class="input-group">
                     <span class="input-group-text">R$</span>
-                    <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+                    <input id="dep-valor" type="number" step="0.01" min="0.01" class="form-control">
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="submit" class="btn btn-primary">
+                <button type="button" class="btn btn-primary w-100" onclick="executarDeposito()">
                     <i class="bi bi-plus-circle me-1"></i> Depositar
                 </button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
-<!-- MODAL SAQUE -->
+<!-- MODAL SACAR -->
 <div class="modal fade" id="modalSaque" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form th:action="@{/saque}" method="post" class="modal-content">
+        <div class="modal-content">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold">Sacar</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label small fw-semibold">Valor</label>
+                <label class="form-label small fw-semibold">Valor (R$)</label>
                 <div class="input-group">
                     <span class="input-group-text">R$</span>
-                    <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+                    <input id="saq-valor" type="number" step="0.01" min="0.01" class="form-control">
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="submit" class="btn btn-primary">
+                <button type="button" class="btn btn-primary w-100" onclick="executarSaque()">
                     <i class="bi bi-dash-circle me-1"></i> Sacar
                 </button>
             </div>
-        </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL COMPROVANTE -->
+<div class="modal fade" id="modalComprovante" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">✅ Comprovante</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted small">Código</dt>
+                    <dd class="col-7 fw-semibold" id="cmp-codigo"></dd>
+                    <dt class="col-5 text-muted small">Tipo</dt>
+                    <dd class="col-7" id="cmp-tipo"></dd>
+                    <dt class="col-5 text-muted small">Valor</dt>
+                    <dd class="col-7 fw-bold" id="cmp-valor"></dd>
+                    <dt class="col-5 text-muted small">Data</dt>
+                    <dd class="col-7" id="cmp-data"></dd>
+                    <dt class="col-5 text-muted small">Origem</dt>
+                    <dd class="col-7" id="cmp-origem"></dd>
+                    <dt class="col-5 text-muted small">Destino</dt>
+                    <dd class="col-7" id="cmp-destino"></dd>
+                </dl>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-primary w-100" id="cmp-imprimir">
+                    <i class="bi bi-printer me-1"></i> Imprimir / PDF
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    function toggleSaldo(btn) {
-        const el = document.getElementById('saldo');
-        const icon = btn.querySelector('i');
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script th:src="@{/js/app.js}"></script>
+<script th:inline="javascript">
+    // ===== Chart =====
+    const labels  = /*[[${chart.labels}]]*/ [];
+    const entradas = /*[[${chart.entradas}]]*/ [];
+    const saidas  = /*[[${chart.saidas}]]*/ [];
 
-        el.style.opacity = '0';
-        btn.classList.toggle('rotated');
+    new Chart(document.getElementById('graficoMov'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Entradas', data: entradas, backgroundColor: '#10b981', borderRadius: 6 },
+                { label: 'Saídas',   data: saidas,   backgroundColor: '#ef4444', borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { usePointStyle: true } },
+                tooltip: { callbacks: { label: c => c.dataset.label + ': ' + formatBRL(c.parsed.y) } }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { callback: v => formatBRL(v) } }
+            }
+        }
+    });
 
-        setTimeout(() => {
-            const real = el.getAttribute('data-real');
-            const oculto = el.getAttribute('data-oculto') === 'true';
-            el.textContent = oculto ? real : '••••••••';
-            el.setAttribute('data-oculto', !oculto);
-            el.style.opacity = '1';
-            icon.className = oculto ? 'bi bi-eye-slash' : 'bi bi-eye';
-        }, 180);
+    // ===== Ações via AJAX =====
+    async function executarTransferencia() {
+        const body = {
+            tipo: document.getElementById('tr-tipo').value,
+            numeroContaDestino: document.getElementById('tr-destino').value,
+            valor: parseFloat(document.getElementById('tr-valor').value),
+            senha: document.getElementById('tr-senha').value
+        };
+        const r = await postJson('/api/transferencia', body);
+        if (r.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalTransferir')).hide();
+            toast(r.mensagem, 'sucesso');
+            setTimeout(() => location.reload(), 1200);
+        } else toast(r.mensagem, 'erro');
+    }
+
+    async function executarDeposito() {
+        const v = parseFloat(document.getElementById('dep-valor').value);
+        const r = await postJson('/api/deposito', { valor: v });
+        if (r.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalDeposito')).hide();
+            toast(r.mensagem, 'sucesso');
+            setTimeout(() => location.reload(), 1200);
+        } else toast(r.mensagem, 'erro');
+    }
+
+    async function executarSaque() {
+        const v = parseFloat(document.getElementById('saq-valor').value);
+        const r = await postJson('/api/saque', { valor: v });
+        if (r.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalSaque')).hide();
+            toast(r.mensagem, 'sucesso');
+            setTimeout(() => location.reload(), 1200);
+        } else toast(r.mensagem, 'erro');
     }
 </script>
 </body>

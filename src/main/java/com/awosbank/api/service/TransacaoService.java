@@ -120,6 +120,89 @@ public class TransacaoService {
         return transacaoRepository.save(t);
     }
 
+    // no topo, injete também:
+// private final PixKeyService pixKeyService;
+
+    /** Resolve destino: tenta PIX key; se não achar, tenta número de conta. */
+    private Conta resolverDestino(String identificador) {
+        String id = identificador.trim();
+        try {
+            var pk = pixKeyService.buscarPorChave(id);
+            if (pk.getUsuario() != null && pk.getUsuario().getConta() != null) {
+                return pk.getUsuario().getConta();
+            }
+        } catch (Exception ignored) { }
+        return contaRepository.findByNumeroConta(id)
+                .orElseThrow(() -> new BusinessException("Destinatário não encontrado (chave PIX ou conta)"));
+    }
+
+    /** Transferência por chave PIX ou conta */
+    @Transactional
+    public Transacao transferirPorIdentificador(Usuario usuario, TransferenciaDTO dto) {
+        if (!passwordEncoder.matches(dto.getSenha(), usuario.getSenha())) {
+            throw new BusinessException("Senha incorreta");
+        }
+        Conta origem = usuario.getConta();
+        if (origem.getStatus() != StatusConta.ATIVA) {
+            throw new BusinessException("Conta origem não está ativa");
+        }
+        Conta destino = resolverDestino(dto.getNumeroContaDestino());
+        if (destino.getStatus() != StatusConta.ATIVA) {
+            throw new BusinessException("Conta destino não está ativa");
+        }
+        if (destino.getId().equals(origem.getId())) {
+            throw new BusinessException("Não é possível transferir para a própria conta");
+        }
+        BigDecimal valor = dto.getValor();
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Valor deve ser maior que zero");
+        }
+        if (origem.getSaldo().compareTo(valor) < 0) {
+            throw new BusinessException("Saldo insuficiente");
+        }
+        origem.setSaldo(origem.getSaldo().subtract(valor));
+        destino.setSaldo(destino.getSaldo().add(valor));
+        contaRepository.save(origem);
+        contaRepository.save(destino);
+
+        Transacao t = Transacao.builder()
+                .contaOrigem(origem).contaDestino(destino).valor(valor)
+                .tipo(dto.getTipo()).dataHora(LocalDateTime.now())
+                .comprovanteCodigo(gerarComprovante()).build();
+        return transacaoRepository.save(t);
+    }
+
+    /** Dados para gráfico (últimos 6 meses) */
+    public com.awosbank.api.dto.ChartDataDTO chartData(UUID contaId) {
+        LocalDateTime inicio = LocalDateTime.now().minusMonths(5)
+                .withDayOfMonth(1).toLocalDate().atStartOfDay();
+        List<Transacao> lista = transacaoRepository.buscarExtrato(
+                contaId, inicio, LocalDateTime.now(), null);
+
+        java.util.LinkedHashMap<String, BigDecimal[]> meses = new java.util.LinkedHashMap<>();
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("MM/yyyy");
+        for (int i = 5; i >= 0; i--) {
+            meses.put(LocalDateTime.now().minusMonths(i).format(fmt),
+                    new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+        }
+        for (Transacao t : lista) {
+            String k = t.getDataHora().format(fmt);
+            if (!meses.containsKey(k)) continue;
+            BigDecimal[] v = meses.get(k);
+            boolean entrada = t.getTipo() == TipoTransacao.DEPOSITO
+                    || (t.getContaDestino() != null && t.getContaDestino().getId().equals(contaId));
+            if (entrada) v[0] = v[0].add(t.getValor());
+            else v[1] = v[1].add(t.getValor());
+        }
+        var labels = new java.util.ArrayList<String>();
+        var entradas = new java.util.ArrayList<BigDecimal>();
+        var saidas = new java.util.ArrayList<BigDecimal>();
+        meses.forEach((k, v) -> {
+            labels.add(k); entradas.add(v[0]); saidas.add(v[1]);
+        });
+        return new com.awosbank.api.dto.ChartDataDTO(labels, entradas, saidas);
+    }
+
     public List<TransacaoView> buscarExtrato(UUID contaId, ExtratoFiltroDTO filtro) {
         LocalDateTime inicio = filtro.getDataInicio() != null
                 ? filtro.getDataInicio().atStartOfDay()

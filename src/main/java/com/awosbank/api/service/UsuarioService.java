@@ -57,4 +57,18 @@ public class UsuarioService {
 
         return usuarioRepository.save(usuario);
     }
+    @Transactional
+    public Usuario atualizarPerfil(String emailAtual, com.awosbank.api.dto.PerfilDTO dto) {
+        Usuario u = buscarPorEmail(emailAtual);
+        if (!u.getEmail().equals(dto.getEmail())
+                && usuarioRepository.existsByEmail(dto.getEmail())) {
+            throw new BusinessException("Novo email já cadastrado");
+        }
+        u.setNomeCompleto(dto.getNomeCompleto());
+        u.setEmail(dto.getEmail());
+        u.setTelefone(dto.getTelefone());
+        u.setDataNascimento(dto.getDataNascimento());
+        u.setEndereco(dto.getEndereco());
+        return usuarioRepository.save(u);
+    }
 }

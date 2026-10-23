@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- NAVBAR -->
+<nav th:fragment="navbar(usuario, active)"
+     class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" th:href="@{/dashboard}">
+            <i class="bi bi-bank2"></i> AWOS Bank
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav me-auto ms-lg-4">
+                <li class="nav-item">
+                    <a class="nav-link" th:classappend="${active=='dashboard'}?'active fw-bold':''"
+                       th:href="@{/dashboard}"><i class="bi bi-house"></i> Início</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:classappend="${active=='extrato'}?'active fw-bold':''"
+                       th:href="@{/extrato}"><i class="bi bi-file-text"></i> Extrato</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:classappend="${active=='pix'}?'active fw-bold':''"
+                       th:href="@{/pix}"><i class="bi bi-qr-code"></i> PIX</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:classappend="${active=='perfil'}?'active fw-bold':''"
+                       th:href="@{/perfil}"><i class="bi bi-person"></i> Perfil</a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" class="notification-btn" title="Notificações">
+                    <i class="bi bi-bell"></i>
+                    <span class="badge-dot"></span>
+                </button>
+                <a th:href="@{/perfil}" class="d-flex align-items-center gap-2 text-decoration-none">
+                    <div class="user-avatar" th:text="${usuario.iniciais}">CT</div>
+                    <span class="text-white small d-none d-md-inline"
+                          th:text="${usuario.primeiroNome}">Cliente</span>
+                </a>
+                <form th:action="@{/logout}" method="post" class="m-0">
+                    <button class="btn btn-sm btn-outline-light" title="Sair">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- TOASTS -->
+<div th:fragment="toasts">
+    <div id="toast-container" class="toast-container"></div>
+    <div th:if="${sucesso}" data-flash th:attr="data-flash=${sucesso}" data-flash-tipo="sucesso" style="display:none"></div>
+    <div th:if="${erro}"    data-flash th:attr="data-flash=${erro}"    data-flash-tipo="erro"    style="display:none"></div>
+</div>
+</body>
+</html>
