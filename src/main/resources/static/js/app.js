@@ -104,3 +104,50 @@ document.addEventListener('DOMContentLoaded', () => {
         el.remove();
     });
 });
+
+// ==========================================
+// MÁSCARAS DE INPUT (NOVAS FUNCIONALIDADES)
+// ==========================================
+
+function aplicarMascaraMoeda(input) {
+    let value = input.value.replace(/\D/g, '');
+    value = (Number(value) / 100).toFixed(2) + '';
+    value = value.replace(".", ",");
+    value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    input.value = 'R$ ' + value;
+}
+
+function extrairValorMoeda(id) {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    return parseFloat(el.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function aplicarMascaraCpfCnpj(input) {
+    let value = input.value.replace(/\D/g, '');
+    if (value.length <= 11) {
+        value = value.replace(/(\d{3})(\d)/, '$1.$2')
+                     .replace(/(\d{3})(\d)/, '$1.$2')
+                     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+        value = value.replace(/^(\d{2})(\d)/, '$1.$2')
+                     .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                     .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                     .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+    input.value = value;
+}
+
+function aplicarMascaraTelefone(input) {
+    let value = input.value.replace(/\D/g, '');
+    if (value.length > 10) {
+        value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
+    } else if (value.length > 5) {
+        value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+    } else if (value.length > 2) {
+        value = value.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
+    } else {
+        value = value.replace(/^(\d*)/, '($1');
+    }
+    input.value = value;
+}
