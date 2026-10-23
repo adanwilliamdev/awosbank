@@ -7,10 +7,13 @@ import com.awosbank.api.service.TransacaoService;
 import com.awosbank.api.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
+/** Dados de demonstração: SOMENTE no perfil dev. Nunca cria usuário com senha conhecida em prod. */
+@Profile("dev")
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {

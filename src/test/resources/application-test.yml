@@ -1,0 +1,12 @@
+# Perfil usado SOMENTE pelos testes: H2 em memória, schema recriado a cada execução.
+# LOCK_TIMEOUT alto para os testes de concorrência (threads esperando o SELECT ... FOR UPDATE).
+spring:
+  datasource:
+    url: jdbc:h2:mem:awosbank-test;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=20000
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false

@@ -20,7 +20,12 @@ function toast(mensagem, tipo = 'sucesso', duracao = 4000) {
     const icons = { sucesso: 'bi-check-circle-fill', erro: 'bi-x-circle-fill', info: 'bi-info-circle-fill' };
     const el = document.createElement('div');
     el.className = `toast-msg ${tipo}`;
-    el.innerHTML = `<i class="bi ${icons[tipo] || icons.info}"></i><span>${mensagem}</span>`;
+    // textContent (nunca innerHTML): a mensagem pode conter dados vindos do usuário/servidor
+    const icone = document.createElement('i');
+    icone.className = `bi ${icons[tipo] || icons.info}`;
+    const texto = document.createElement('span');
+    texto.textContent = mensagem == null ? '' : String(mensagem);
+    el.append(icone, texto);
     container.appendChild(el);
 
     setTimeout(() => {

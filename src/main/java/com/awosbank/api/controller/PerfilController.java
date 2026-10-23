@@ -4,9 +4,12 @@ import com.awosbank.api.domain.model.Usuario;
 import com.awosbank.api.dto.PerfilDTO;
 import com.awosbank.api.exception.BusinessException;
 import com.awosbank.api.service.UsuarioService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -39,14 +42,20 @@ public class PerfilController {
     public String salvar(@Valid @ModelAttribute("perfilDTO") PerfilDTO dto,
                          BindingResult result,
                          Authentication auth, Model model,
-                         RedirectAttributes ra) {
+                         RedirectAttributes ra,
+                         HttpServletRequest request, HttpServletResponse response) {
         Usuario u = usuarioService.buscarPorEmail(auth.getName());
         if (result.hasErrors()) {
             model.addAttribute("usuario", u);
             return "perfil";
         }
         try {
-            usuarioService.atualizarPerfil(auth.getName(), dto);
+            Usuario atualizado = usuarioService.atualizarPerfil(auth.getName(), dto);
+            if (!atualizado.getEmail().equals(auth.getName())) {
+                // O e-mail é o identificador da sessão: encerra-a e pede novo login com o e-mail novo.
+                new SecurityContextLogoutHandler().logout(request, response, auth);
+                return "redirect:/login?emailAlterado";
+            }
             ra.addFlashAttribute("sucesso", "Perfil atualizado!");
             return "redirect:/perfil";
         } catch (BusinessException e) {

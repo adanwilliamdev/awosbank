@@ -24,6 +24,7 @@
 
             <div th:if="${param.error}" class="alert alert-danger py-2 small">Email ou senha inválidos.</div>
             <div th:if="${param.logout}" class="alert alert-success py-2 small">Logout realizado com sucesso.</div>
+            <div th:if="${param.emailAlterado}" class="alert alert-info py-2 small">E-mail alterado. Entre novamente com o novo e-mail.</div>
             <div th:if="${sucesso}" class="alert alert-success py-2 small" th:text="${sucesso}"></div>
 
             <form th:action="@{/login}" method="post" id="loginForm">

@@ -50,7 +50,7 @@
                 <div class="mb-1">
                     <label class="form-label small fw-semibold">Chave</label>
                     <input id="pix-chave" type="text" class="form-control"
-                           placeholder="Digite a chave">
+                           placeholder="Digite a chave (em branco = gerar chave aleatória)">
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
@@ -78,14 +78,21 @@
         chaves.forEach(k => {
             const card = document.createElement('div');
             card.className = 'pix-key-card';
-            card.innerHTML = `
-                <div>
-                    <div class="pix-key-tipo">${k.tipoDescricao}</div>
-                    <div class="fw-semibold">${k.chave}</div>
-                </div>
-                <button class="btn btn-sm btn-outline-danger" title="Remover">
-                    <i class="bi bi-trash"></i>
-                </button>`;
+            // Monta o card via DOM + textContent: a chave PIX é dado do usuário (anti-XSS)
+            const info = document.createElement('div');
+            const tipoEl = document.createElement('div');
+            tipoEl.className = 'pix-key-tipo';
+            tipoEl.textContent = k.tipoDescricao;
+            const chaveEl = document.createElement('div');
+            chaveEl.className = 'fw-semibold';
+            chaveEl.textContent = k.chave;
+            info.append(tipoEl, chaveEl);
+
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm btn-outline-danger';
+            btn.title = 'Remover';
+            btn.innerHTML = '<i class="bi bi-trash"></i>'; // HTML estático, sem dados externos
+            card.append(info, btn);
             card.querySelector('button').onclick = async () => {
                 if (!confirm('Remover esta chave PIX?')) return;
                 const r = await deleteJson('/api/pix/keys/' + k.id);
@@ -99,7 +106,7 @@
     async function adicionarChave() {
         const tipo = document.getElementById('pix-tipo').value;
         const chave = document.getElementById('pix-chave').value.trim();
-        if (!chave) { toast('Informe a chave', 'erro'); return; }
+        if (!chave && tipo !== 'ALEATORIA') { toast('Informe a chave', 'erro'); return; }
         const r = await postJson('/api/pix/keys', { tipo, chave });
         if (r.ok) {
             bootstrap.Modal.getInstance(document.getElementById('modalNovaChave')).hide();

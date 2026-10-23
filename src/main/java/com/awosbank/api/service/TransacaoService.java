@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -30,144 +31,141 @@ public class TransacaoService {
     private final TransacaoRepository transacaoRepository;
     private final ContaRepository contaRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PixKeyService pixKeyService;   // ← ESTA LINHA FALTAVA
+    private final PixKeyService pixKeyService;
 
+    private static final BigDecimal LIMITE_OPERACAO = new BigDecimal("1000000.00");
+
+    /** Transferência informando o número da conta de destino (formulário web). */
     @Transactional
     public Transacao transferir(Usuario usuario, TransferenciaDTO dto) {
-        if (!passwordEncoder.matches(dto.getSenha(), usuario.getSenha())) {
-            throw new BusinessException("Senha incorreta");
-        }
-        Conta origem = usuario.getConta();
-        if (origem.getStatus() != StatusConta.ATIVA) {
-            throw new BusinessException("Conta origem não está ativa");
-        }
-        Conta destino = contaRepository.findByNumeroConta(dto.getNumeroContaDestino())
+        validarSenha(usuario, dto.getSenha());
+        Conta destino = contaRepository.findByNumeroConta(normalizar(dto.getNumeroContaDestino()))
                 .orElseThrow(() -> new BusinessException("Conta destino não encontrada"));
-        if (destino.getStatus() != StatusConta.ATIVA) {
-            throw new BusinessException("Conta destino não está ativa");
-        }
-        if (destino.getId().equals(origem.getId())) {
-            throw new BusinessException("Não é possível transferir para a própria conta");
-        }
-        if (dto.getTipo() != TipoTransacao.PIX && dto.getTipo() != TipoTransacao.TED) {
-            throw new BusinessException("Tipo de transferência inválido");
-        }
+        return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo());
+    }
 
-        BigDecimal valor = dto.getValor();
-        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Valor deve ser maior que zero");
-        }
-        if (origem.getSaldo().compareTo(valor) < 0) {
-            throw new BusinessException("Saldo insuficiente");
-        }
-
-        origem.setSaldo(origem.getSaldo().subtract(valor));
-        destino.setSaldo(destino.getSaldo().add(valor));
-        contaRepository.save(origem);
-        contaRepository.save(destino);
-
-        Transacao t = Transacao.builder()
-                .contaOrigem(origem)
-                .contaDestino(destino)
-                .valor(valor)
-                .tipo(dto.getTipo())
-                .dataHora(LocalDateTime.now())
-                .comprovanteCodigo(gerarComprovante())
-                .build();
-        return transacaoRepository.save(t);
+    /** Transferência por chave PIX ou número de conta (API). */
+    @Transactional
+    public Transacao transferirPorIdentificador(Usuario usuario, TransferenciaDTO dto) {
+        validarSenha(usuario, dto.getSenha());
+        Conta destino = resolverDestino(dto.getNumeroContaDestino());
+        return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo());
     }
 
     @Transactional
     public Transacao depositar(Usuario usuario, BigDecimal valor) {
-        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Valor inválido para depósito");
+        BigDecimal v = validarValor(valor, "Valor inválido para depósito");
+        Conta conta = lockar(usuario.getConta().getId());
+        if (conta.getStatus() != StatusConta.ATIVA) {
+            throw new BusinessException("Conta não está ativa");
         }
-        Conta conta = usuario.getConta();
-        conta.setSaldo(conta.getSaldo().add(valor));
+        conta.setSaldo(conta.getSaldo().add(v));
         contaRepository.save(conta);
-
-        Transacao t = Transacao.builder()
-                .contaDestino(conta)
-                .valor(valor)
-                .tipo(TipoTransacao.DEPOSITO)
-                .dataHora(LocalDateTime.now())
-                .comprovanteCodigo(gerarComprovante())
-                .build();
-        return transacaoRepository.save(t);
+        return registrar(null, conta, v, TipoTransacao.DEPOSITO);
     }
 
     @Transactional
     public Transacao sacar(Usuario usuario, BigDecimal valor) {
-        Conta conta = usuario.getConta();
+        BigDecimal v = validarValor(valor, "Valor inválido para saque");
+        Conta conta = lockar(usuario.getConta().getId());
         if (conta.getStatus() != StatusConta.ATIVA) {
             throw new BusinessException("Conta não está ativa");
         }
-        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Valor inválido para saque");
-        }
-        if (conta.getSaldo().compareTo(valor) < 0) {
+        if (conta.getSaldo().compareTo(v) < 0) {
             throw new BusinessException("Saldo insuficiente");
         }
-        conta.setSaldo(conta.getSaldo().subtract(valor));
+        conta.setSaldo(conta.getSaldo().subtract(v));
         contaRepository.save(conta);
-
-        Transacao t = Transacao.builder()
-                .contaOrigem(conta)
-                .valor(valor)
-                .tipo(TipoTransacao.SAQUE)
-                .dataHora(LocalDateTime.now())
-                .comprovanteCodigo(gerarComprovante())
-                .build();
-        return transacaoRepository.save(t);
+        return registrar(conta, null, v, TipoTransacao.SAQUE);
     }
 
-    /** Resolve destino: tenta PIX key; se não achar, tenta número de conta. */
-    private Conta resolverDestino(String identificador) {
-        String id = identificador.trim();
-        try {
-            var pk = pixKeyService.buscarPorChave(id);
-            if (pk.getUsuario() != null && pk.getUsuario().getConta() != null) {
-                return pk.getUsuario().getConta();
-            }
-        } catch (Exception ignored) { }
-        return contaRepository.findByNumeroConta(id)
-                .orElseThrow(() -> new BusinessException("Destinatário não encontrado (chave PIX ou conta)"));
-    }
-
-    /** Transferência por chave PIX ou conta */
-    @Transactional
-    public Transacao transferirPorIdentificador(Usuario usuario, TransferenciaDTO dto) {
-        if (!passwordEncoder.matches(dto.getSenha(), usuario.getSenha())) {
-            throw new BusinessException("Senha incorreta");
+    /**
+     * Núcleo único da transferência. Bloqueia as DUAS contas com lock pessimista
+     * sempre em ordem crescente de ID (evita deadlock em transferências cruzadas
+     * A→B e B→A) e só então valida status e saldo sobre os dados frescos do banco.
+     */
+    private Transacao executarTransferencia(Usuario usuario, UUID destinoId,
+                                            BigDecimal valorInformado, TipoTransacao tipo) {
+        if (tipo != TipoTransacao.PIX && tipo != TipoTransacao.TED) {
+            throw new BusinessException("Tipo de transferência inválido");
         }
-        Conta origem = usuario.getConta();
+        BigDecimal valor = validarValor(valorInformado, "Valor deve ser maior que zero");
+
+        UUID origemId = usuario.getConta().getId();
+        if (destinoId.equals(origemId)) {
+            throw new BusinessException("Não é possível transferir para a própria conta");
+        }
+
+        boolean origemPrimeiro = origemId.compareTo(destinoId) < 0;
+        Conta primeira = lockar(origemPrimeiro ? origemId : destinoId);
+        Conta segunda = lockar(origemPrimeiro ? destinoId : origemId);
+        Conta origem = origemPrimeiro ? primeira : segunda;
+        Conta destino = origemPrimeiro ? segunda : primeira;
+
         if (origem.getStatus() != StatusConta.ATIVA) {
             throw new BusinessException("Conta origem não está ativa");
         }
-        Conta destino = resolverDestino(dto.getNumeroContaDestino());
         if (destino.getStatus() != StatusConta.ATIVA) {
             throw new BusinessException("Conta destino não está ativa");
-        }
-        if (destino.getId().equals(origem.getId())) {
-            throw new BusinessException("Não é possível transferir para a própria conta");
-        }
-        BigDecimal valor = dto.getValor();
-        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Valor deve ser maior que zero");
         }
         if (origem.getSaldo().compareTo(valor) < 0) {
             throw new BusinessException("Saldo insuficiente");
         }
+
         origem.setSaldo(origem.getSaldo().subtract(valor));
         destino.setSaldo(destino.getSaldo().add(valor));
         contaRepository.save(origem);
         contaRepository.save(destino);
+        return registrar(origem, destino, valor, tipo);
+    }
 
-        Transacao t = Transacao.builder()
-                .contaOrigem(origem).contaDestino(destino).valor(valor)
-                .tipo(dto.getTipo()).dataHora(LocalDateTime.now())
-                .comprovanteCodigo(gerarComprovante()).build();
-        return transacaoRepository.save(t);
+    private Conta lockar(UUID contaId) {
+        return contaRepository.findByIdForUpdate(contaId)
+                .orElseThrow(() -> new BusinessException("Conta não encontrada"));
+    }
+
+    private void validarSenha(Usuario usuario, String senha) {
+        if (senha == null || !passwordEncoder.matches(senha, usuario.getSenha())) {
+            throw new BusinessException("Senha incorreta");
+        }
+    }
+
+    /** Valor positivo, no máximo 2 casas decimais e dentro do limite por operação. */
+    private BigDecimal validarValor(BigDecimal valor, String mensagem) {
+        if (valor == null || valor.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(mensagem);
+        }
+        if (valor.stripTrailingZeros().scale() > 2) {
+            throw new BusinessException("Valor deve ter no máximo 2 casas decimais");
+        }
+        if (valor.compareTo(LIMITE_OPERACAO) > 0) {
+            throw new BusinessException("Valor acima do limite por operação (R$ 1.000.000,00)");
+        }
+        return valor.setScale(2, RoundingMode.UNNECESSARY);
+    }
+
+    private Transacao registrar(Conta origem, Conta destino, BigDecimal valor, TipoTransacao tipo) {
+        return transacaoRepository.save(Transacao.builder()
+                .contaOrigem(origem)
+                .contaDestino(destino)
+                .valor(valor)
+                .tipo(tipo)
+                .dataHora(LocalDateTime.now())
+                .comprovanteCodigo(gerarComprovante())
+                .build());
+    }
+
+    private String normalizar(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    /** Resolve o destino: tenta chave PIX; se não achar, tenta número de conta. */
+    private Conta resolverDestino(String identificador) {
+        String id = normalizar(identificador);
+        return pixKeyService.buscarOpcional(id)
+                .map(pk -> pk.getUsuario().getConta())
+                .or(() -> contaRepository.findByNumeroConta(id))
+                .orElseThrow(() -> new BusinessException("Destinatário não encontrado (chave PIX ou conta)"));
     }
 
     /** Dados para gráfico (últimos 6 meses) */

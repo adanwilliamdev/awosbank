@@ -2,6 +2,7 @@ package com.awosbank.api.config;
 
 import com.awosbank.api.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -19,6 +20,10 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
 
+    /** Console do H2 só existe quando habilitado explicitamente (perfil dev). */
+    @Value("${spring.h2.console.enabled:false}")
+    private boolean h2ConsoleHabilitado;
+
     @Bean
     public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
 
@@ -34,11 +39,14 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authenticationProvider(authProvider())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/login", "/cadastro", "/h2-console/**").permitAll()
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers("/css/**", "/js/**", "/images/**").permitAll();
+                    auth.requestMatchers("/login", "/cadastro").permitAll();
+                    if (h2ConsoleHabilitado) {
+                        auth.requestMatchers("/h2-console/**").permitAll();
+                    }
+                    auth.anyRequest().authenticated();
+                })
                 .formLogin(form -> form
                         .loginPage("/login").loginProcessingUrl("/login")
                         .defaultSuccessUrl("/dashboard", true)
@@ -47,11 +55,17 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/logout").logoutSuccessUrl("/login?logout").permitAll()
                 )
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/h2-console/**")
-                )
-                .headers(h -> h.frameOptions(f -> f.sameOrigin()));
+                .csrf(csrf -> {
+                    csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse());
+                    if (h2ConsoleHabilitado) {
+                        csrf.ignoringRequestMatchers("/h2-console/**");
+                    }
+                })
+                .headers(h -> {
+                    // sameOrigin só é necessário para o iframe do console H2; fora do dev, DENY
+                    if (h2ConsoleHabilitado) h.frameOptions(f -> f.sameOrigin());
+                    else h.frameOptions(f -> f.deny());
+                });
         return http.build();
     }
 }
