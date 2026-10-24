@@ -10,7 +10,7 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 
 # ---------- Estágio 2: runtime enxuto (somente JRE, usuário sem privilégios) ----------
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:24-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S awos && adduser -S awos -G awos
