@@ -35,7 +35,7 @@ class SegurancaWebTest {
     }
 
     @Test
-    void consoleH2NaoEstaExpostoForaDoDev() throws Exception {
+    void consoleH2NaoExisteMais() throws Exception {
         mvc.perform(get("/h2-console/"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrlPattern("**/login"));

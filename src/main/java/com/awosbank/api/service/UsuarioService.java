@@ -1,5 +1,7 @@
 package com.awosbank.api.service;
 
+import com.awosbank.api.audit.Auditado;
+import com.awosbank.api.domain.enums.AcaoAuditoria;
 import com.awosbank.api.domain.enums.StatusConta;
 import com.awosbank.api.domain.model.Conta;
 import com.awosbank.api.domain.model.Usuario;
@@ -27,6 +29,7 @@ public class UsuarioService {
                 .orElseThrow(() -> new BusinessException("Usuário não encontrado"));
     }
 
+    @Auditado(AcaoAuditoria.CADASTRO)
     @Transactional
     public Usuario cadastrar(CadastroDTO dto) {
         if (!dto.getSenha().equals(dto.getConfirmarSenha())) {
@@ -58,6 +61,7 @@ public class UsuarioService {
 
         return usuarioRepository.save(usuario);
     }
+    @Auditado(AcaoAuditoria.ATUALIZACAO_PERFIL)
     @Transactional
     public Usuario atualizarPerfil(String emailAtual, com.awosbank.api.dto.PerfilDTO dto) {
         Usuario u = buscarPorEmail(emailAtual);

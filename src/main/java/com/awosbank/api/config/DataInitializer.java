@@ -2,6 +2,7 @@ package com.awosbank.api.config;
 
 import com.awosbank.api.domain.enums.TipoConta;
 import com.awosbank.api.domain.model.Usuario;
+import com.awosbank.api.domain.repository.UsuarioRepository;
 import com.awosbank.api.dto.CadastroDTO;
 import com.awosbank.api.service.TransacaoService;
 import com.awosbank.api.service.UsuarioService;
@@ -12,17 +13,22 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-/** Dados de demonstração: SOMENTE no perfil dev. Nunca cria usuário com senha conhecida em prod. */
+/** Dados de demonstração: SOMENTE no perfil dev (e apenas se o usuário ainda não existir). Nunca cria usuário com senha conhecida em prod. */
 @Profile("dev")
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
+    private final UsuarioRepository usuarioRepository;
     private final UsuarioService usuarioService;
     private final TransacaoService transacaoService;
 
     @Override
     public void run(String... args) {
+        // o banco agora é PostgreSQL (persistente): só semeia na primeira execução
+        if (usuarioRepository.existsByEmail("cliente@awosbank.com")) {
+            return;
+        }
         try {
             CadastroDTO dto = new CadastroDTO();
             dto.setNomeCompleto("Cliente de Teste");

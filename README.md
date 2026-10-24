@@ -9,7 +9,10 @@ O projeto simula a experiência de um banco digital, combinando processamento no
 ![Thymeleaf](https://img.shields.io/badge/Thymeleaf-3.1-005F0F?style=for-the-badge&logo=thymeleaf)
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-7952B3?style=for-the-badge&logo=bootstrap)
 ![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=for-the-badge&logo=javascript)
-![License](https://img.shields.io/badge/Status-Em%20Desenvolvimento-blue?style=for-the-badge)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-Swagger-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
+![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 
 ---
 
@@ -43,6 +46,13 @@ O projeto simula a experiência de um banco digital, combinando processamento no
 - Máscaras dinâmicas para campos de formulário.
 - Interface intuitiva para edição de informações.
 
+### 🕵️ Histórico de auditoria
+- Registro de **cadastro, login (sucesso e falha), transferências, depósitos, saques, alterações de perfil e chaves PIX**.
+- Tentativas que **falham** (saldo insuficiente, senha incorreta…) também ficam registradas — gravadas em transação própria, então sobrevivem ao rollback da operação.
+- Cada registro guarda usuário, ação, resultado, detalhes e IP de origem. **Nunca** senhas.
+- Tabela *append-only*: um trigger do PostgreSQL bloqueia `UPDATE` e `DELETE`.
+- Consulta pelo próprio cliente em `GET /api/auditoria`.
+
 ### 🧾 Comprovantes e tratamento de erros
 - Geração de comprovantes de transações.
 - Exibição de recibos em modal.
@@ -60,7 +70,10 @@ O projeto simula a experiência de um banco digital, combinando processamento no
 | Aplicação web | Spring Web |
 | Segurança | Spring Security, BCrypt |
 | Persistência | Spring Data JPA, Hibernate |
-| Banco de dados | H2 Database |
+| Banco de dados | PostgreSQL 16 + Flyway (migrations versionadas) |
+| API docs | springdoc-openapi (Swagger UI) |
+| Testes | JUnit 5, Mockito, Spring Boot Test, Testcontainers, JaCoCo |
+| Infra / CI | Docker, Docker Compose, GitHub Actions |
 | Validação | Spring Boot Validation |
 | Templates | Thymeleaf |
 | Estilização | Bootstrap 5.3, CSS |
@@ -86,51 +99,82 @@ A aplicação utiliza uma arquitetura baseada no ecossistema Spring Boot, separa
 
 ## 🚀 Como executar localmente
 
-### Pré-requisitos
+### Opção 1 — Docker Compose (mais simples)
 
-- Java 17 ou superior.
-- Maven instalado ou Maven Wrapper disponível no projeto.
-- Git.
-
-### 1. Clone o repositório
+Pré-requisito: Docker com Compose v2.
 
 ```bash
 git clone https://github.com/adanwilliamdev/awosbank.git
-```
-
-### 2. Acesse a pasta do projeto
-
-```bash
 cd awosbank
+docker compose up -d --build
 ```
 
-### 3. Execute a aplicação
+- Aplicação: <http://localhost:8080>
+- Swagger UI: <http://localhost:8080/swagger-ui.html>
+- Health: <http://localhost:8080/actuator/health>
 
-Com Maven instalado:
+Para trocar senha do banco, portas ou perfil, copie `.env.example` para `.env` e ajuste. Para parar e apagar os dados: `docker compose down -v`.
+
+### Opção 2 — Maven + só o banco no Docker
+
+Pré-requisitos: Java 17+, Maven e Docker.
 
 ```bash
-mvn spring-boot:run
+docker compose up -d db      # PostgreSQL em localhost:5432
+mvn spring-boot:run          # perfil "dev": cria o schema via Flyway e semeia o usuário de demonstração
 ```
 
-Se o projeto incluir Maven Wrapper, utilize:
+O schema é criado e versionado pelo **Flyway** (`src/main/resources/db/migration`). O Hibernate roda com `ddl-auto=validate`: se uma entidade divergir das migrations, a aplicação não sobe. Para mudar o banco, crie uma nova migration (`V3__descricao.sql`) — nunca edite uma já aplicada.
 
-**Windows:**
-```powershell
-.\mvnw.cmd spring-boot:run
-```
+### Variáveis de ambiente
 
-**Linux/macOS:**
+| Variável | Padrão (dev) | Descrição |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `dev` | `dev` (demo + Swagger) ou `prod` |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/awosbank` | URL JDBC |
+| `DB_USERNAME` / `DB_PASSWORD` | `awosbank` / `awosbank` | **Obrigatórias, sem padrão, no perfil `prod`** |
+| `FORWARD_HEADERS_STRATEGY` | `none` | Use `framework` atrás de proxy reverso (IP real na auditoria) |
+
+> **Produção:** use `SPRING_PROFILES_ACTIVE=prod` atrás de HTTPS (o cookie de sessão é `Secure`). O perfil `prod` desliga o Swagger e não cria usuário de demonstração.
+>
+> **Já tinha dados do H2/`ddl-auto=update`?** O H2 era em memória, então não há o que migrar. Se você usava um PostgreSQL criado pelo Hibernate, rode o Flyway com baseline na V1 (`spring.flyway.baseline-version=1` + `baseline-on-migrate=true`) para ele aplicar apenas a V2.
+
+---
+
+## 📖 Documentação da API (Swagger / OpenAPI)
+
+Com a aplicação rodando (perfil `dev`):
+
+- **Swagger UI:** <http://localhost:8080/swagger-ui.html>
+- **OpenAPI JSON:** <http://localhost:8080/v3/api-docs>
+
+A API usa a sessão do login web: entre em `/login` no mesmo navegador e use *Try it out*. Os endpoints estão agrupados em **Transações**, **Chaves PIX** e **Auditoria**.
+
+## 🧪 Testes
+
 ```bash
-./mvnw spring-boot:run
+mvn test       # unitários + integração (H2 em memória) — rápido
+mvn verify     # + relatório de cobertura (target/site/jacoco/index.html)
 ```
 
-### 4. Acesse a aplicação
+| Tipo | Classes |
+|---|---|
+| Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `DocumentoValidatorTest` |
+| Repositórios (`@DataJpaTest`) | `RepositoriosJpaTest` |
+| Integração (contexto Spring completo) | `ApiIntegrationTest`, `AuditoriaIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest` |
+| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints e o trigger da auditoria. Pulado automaticamente se não houver Docker. |
 
-Abra o navegador e acesse:
+## 🔄 CI/CD
 
-```text
-http://localhost:8080
-```
+O workflow `.github/workflows/ci.yml` roda a cada push/PR:
+
+1. **Build e testes** — `mvn verify` (Java 17), com relatórios de teste e cobertura como artefatos.
+2. **Smoke test** — sobe o `docker compose` e confere `/actuator/health`, `/login` e o OpenAPI.
+3. **Publicação (CD)** — em push na `main` ou tag `v*`, publica a imagem no GitHub Container Registry (`ghcr.io/<usuario>/awosbank`) com tags `latest`, `sha` e versão.
+
+Para implantar a imagem publicada num servidor: defina `APP_IMAGE=ghcr.io/<usuario>/awosbank:latest` no `.env` e rode `docker compose pull app && docker compose up -d`.
+
+O Dependabot (`.github/dependabot.yml`) abre PRs semanais para Maven, GitHub Actions e Docker.
 
 ---
 
@@ -163,15 +207,21 @@ O AWOS Bank foi desenvolvido para praticar e demonstrar conhecimentos em:
 
 ---
 
-## 🔮 Possíveis melhorias futuras
+## ✅ Melhorias implementadas
 
-- [ ] Migração do H2 para PostgreSQL.
-- [ ] Testes automatizados com JUnit e Mockito.
-- [ ] Implementação de testes de integração.
-- [ ] Dockerização da aplicação.
-- [ ] Documentação da API com Swagger/OpenAPI.
-- [ ] Histórico de auditoria das operações.
-- [ ] Pipeline de integração e entrega contínuas (CI/CD).
+- [x] Migração do H2 para PostgreSQL (com migrations Flyway).
+- [x] Testes automatizados com JUnit e Mockito.
+- [x] Implementação de testes de integração (inclusive com PostgreSQL via Testcontainers).
+- [x] Dockerização da aplicação (Dockerfile multi-stage + Docker Compose).
+- [x] Documentação da API com Swagger/OpenAPI.
+- [x] Histórico de auditoria das operações.
+- [x] Pipeline de integração e entrega contínuas (CI/CD).
+
+## 🔮 Próximos passos
+
+- [ ] Autenticação por token (JWT) para a API, além da sessão web.
+- [ ] Rate limiting / bloqueio temporário após tentativas de login com falha (os dados já estão na auditoria).
+- [ ] Tela web para o histórico de auditoria.
 
 ---
 

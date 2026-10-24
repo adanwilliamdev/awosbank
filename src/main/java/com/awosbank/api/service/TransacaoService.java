@@ -1,5 +1,7 @@
 package com.awosbank.api.service;
 
+import com.awosbank.api.audit.Auditado;
+import com.awosbank.api.domain.enums.AcaoAuditoria;
 import com.awosbank.api.domain.enums.StatusConta;
 import com.awosbank.api.domain.enums.TipoTransacao;
 import com.awosbank.api.domain.model.Conta;
@@ -36,6 +38,7 @@ public class TransacaoService {
     private static final BigDecimal LIMITE_OPERACAO = new BigDecimal("1000000.00");
 
     /** Transferência informando o número da conta de destino (formulário web). */
+    @Auditado(AcaoAuditoria.TRANSFERENCIA)
     @Transactional
     public Transacao transferir(Usuario usuario, TransferenciaDTO dto) {
         validarSenha(usuario, dto.getSenha());
@@ -45,6 +48,7 @@ public class TransacaoService {
     }
 
     /** Transferência por chave PIX ou número de conta (API). */
+    @Auditado(AcaoAuditoria.TRANSFERENCIA)
     @Transactional
     public Transacao transferirPorIdentificador(Usuario usuario, TransferenciaDTO dto) {
         validarSenha(usuario, dto.getSenha());
@@ -52,6 +56,7 @@ public class TransacaoService {
         return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo());
     }
 
+    @Auditado(AcaoAuditoria.DEPOSITO)
     @Transactional
     public Transacao depositar(Usuario usuario, BigDecimal valor) {
         BigDecimal v = validarValor(valor, "Valor inválido para depósito");
@@ -64,6 +69,7 @@ public class TransacaoService {
         return registrar(null, conta, v, TipoTransacao.DEPOSITO);
     }
 
+    @Auditado(AcaoAuditoria.SAQUE)
     @Transactional
     public Transacao sacar(Usuario usuario, BigDecimal valor) {
         BigDecimal v = validarValor(valor, "Valor inválido para saque");

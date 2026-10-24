@@ -1,10 +1,14 @@
 package com.awosbank.api.exception;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-@ControllerAdvice
+/** Erros das páginas web (Thymeleaf). Não se aplica ao springdoc nem a endpoints fora do pacote de controllers. */
+@ControllerAdvice(basePackages = "com.awosbank.api.controller")
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)

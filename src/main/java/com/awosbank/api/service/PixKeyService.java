@@ -1,5 +1,7 @@
 package com.awosbank.api.service;
 
+import com.awosbank.api.audit.Auditado;
+import com.awosbank.api.domain.enums.AcaoAuditoria;
 import com.awosbank.api.domain.enums.TipoChavePix;
 import com.awosbank.api.domain.model.PixKey;
 import com.awosbank.api.domain.model.Usuario;
@@ -54,6 +56,7 @@ public class PixKeyService {
         return r;
     }
 
+    @Auditado(AcaoAuditoria.PIX_CHAVE_CADASTRADA)
     @Transactional
     public PixKey adicionar(Usuario u, PixKeyDTO dto) {
         if (dto == null || dto.getTipo() == null) {
@@ -114,6 +117,7 @@ public class PixKeyService {
         }
     }
 
+    @Auditado(AcaoAuditoria.PIX_CHAVE_REMOVIDA)
     @Transactional
     public void remover(Usuario u, UUID id) {
         PixKey k = repo.findById(id)

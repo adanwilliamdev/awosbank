@@ -2,7 +2,6 @@ package com.awosbank.api.config;
 
 import com.awosbank.api.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -19,10 +18,6 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
-
-    /** Console do H2 só existe quando habilitado explicitamente (perfil dev). */
-    @Value("${spring.h2.console.enabled:false}")
-    private boolean h2ConsoleHabilitado;
 
     @Bean
     public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
@@ -42,9 +37,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/css/**", "/js/**", "/images/**").permitAll();
                     auth.requestMatchers("/login", "/cadastro").permitAll();
-                    if (h2ConsoleHabilitado) {
-                        auth.requestMatchers("/h2-console/**").permitAll();
-                    }
+                    // healthcheck do Docker/orquestrador (só /health é exposto — ver application.yml)
+                    auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
+                    // Swagger/OpenAPI: nos perfis em que está desligado (prod) estes caminhos retornam 404
+                    auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
                     auth.anyRequest().authenticated();
                 })
                 .formLogin(form -> form
@@ -55,17 +51,8 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/logout").logoutSuccessUrl("/login?logout").permitAll()
                 )
-                .csrf(csrf -> {
-                    csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse());
-                    if (h2ConsoleHabilitado) {
-                        csrf.ignoringRequestMatchers("/h2-console/**");
-                    }
-                })
-                .headers(h -> {
-                    // sameOrigin só é necessário para o iframe do console H2; fora do dev, DENY
-                    if (h2ConsoleHabilitado) h.frameOptions(f -> f.sameOrigin());
-                    else h.frameOptions(f -> f.deny());
-                });
+                .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                .headers(h -> h.frameOptions(f -> f.deny()));
         return http.build();
     }
 }

@@ -1,0 +1,47 @@
+# AWOS Bank — PostgreSQL + aplicação.
+#
+#   docker compose up -d --build     # sobe tudo  → http://localhost:8080  (Swagger: /swagger-ui.html)
+#   docker compose up -d db          # só o banco (para rodar a aplicação pela IDE / mvn spring-boot:run)
+#   docker compose down -v           # derruba e apaga os dados
+#
+# Configuração por variáveis de ambiente / arquivo .env (modelo em .env.example).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: awosbank-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-awosbank}
+      POSTGRES_USER: ${DB_USERNAME:-awosbank}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-awosbank}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"   # só acessível da própria máquina
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: ${APP_IMAGE:-awosbank-api:local}
+    container_name: awosbank-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # "dev" semeia o usuário de demonstração e usa cookies sem flag Secure (funciona em http://localhost).
+      # Em produção, atrás de HTTPS, use SPRING_PROFILES_ACTIVE=prod (cookie Secure, Swagger desligado).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-awosbank}
+      DB_USERNAME: ${DB_USERNAME:-awosbank}
+      DB_PASSWORD: ${DB_PASSWORD:-awosbank}
+      FORWARD_HEADERS_STRATEGY: ${FORWARD_HEADERS_STRATEGY:-none}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,4 +1,5 @@
-# Perfil usado SOMENTE pelos testes: H2 em memória, schema recriado a cada execução.
+# Perfil dos testes rápidos: H2 em memória, schema criado pelo Hibernate (Flyway desligado).
+# As migrations em PostgreSQL de verdade são exercitadas por PostgresMigrationIT (Testcontainers).
 # LOCK_TIMEOUT alto para os testes de concorrência (threads esperando o SELECT ... FOR UPDATE).
 spring:
   datasource:
@@ -6,7 +7,13 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
+  flyway:
+    enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: true
