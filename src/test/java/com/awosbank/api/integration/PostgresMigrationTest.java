@@ -154,4 +154,38 @@ class PostgresMigrationTest {
         assertEquals(0, contaRepository.findById(b.getConta().getId()).orElseThrow().getSaldo()
                 .compareTo(new BigDecimal("100.00")));
     }
+
+    @Test
+    void transferenciasCruzadasConservamCadaSaldoNoPostgres() throws Exception {
+        Usuario a = TestData.novoUsuario(usuarioService, SENHA);
+        Usuario b = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(a, new BigDecimal("1000.00"));
+        transacaoService.depositar(b, new BigDecimal("1000.00"));
+
+        ExecutorService pool = Executors.newFixedThreadPool(20);
+        CountDownLatch largada = new CountDownLatch(1);
+        List<Future<?>> futuros = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            final boolean aParaB = i % 2 == 0;
+            futuros.add(pool.submit(() -> {
+                largada.await();
+                for (int k = 0; k < 10; k++) {
+                    if (aParaB) transacaoService.transferir(a, dto(b, "10.00"));
+                    else transacaoService.transferir(b, dto(a, "10.00"));
+                }
+                return null;
+            }));
+        }
+        largada.countDown();
+        try {
+            for (Future<?> f : futuros) f.get(90, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertEquals(0, contaRepository.findById(a.getConta().getId()).orElseThrow().getSaldo()
+                .compareTo(new BigDecimal("1000.00")), "10 idas e 10 voltas se anulam em cada conta");
+        assertEquals(0, contaRepository.findById(b.getConta().getId()).orElseThrow().getSaldo()
+                .compareTo(new BigDecimal("1000.00")));
+    }
 }
