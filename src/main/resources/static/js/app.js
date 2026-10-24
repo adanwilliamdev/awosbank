@@ -35,25 +35,43 @@ function toast(mensagem, tipo = 'sucesso', duracao = 4000) {
 }
 
 // ---------- Fetch com CSRF ----------
-async function postJson(url, body) {
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': getCsrf()
-        },
-        body: JSON.stringify(body)
-    });
-    return res.json();
+// Sempre devolve { ok, mensagem, ... }, mesmo quando o servidor responde 403/401/500 ou algo
+// que não seja JSON (antes isso estourava e o toast aparecia vazio).
+async function requisicao(url, method, body) {
+    const headers = { 'X-XSRF-TOKEN': getCsrf(), 'Accept': 'application/json' };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    let res;
+    try {
+        res = await fetch(url, {
+            method, headers, credentials: 'same-origin',
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+    } catch (e) {
+        return { ok: false, mensagem: 'Sem conexão com o servidor. Tente novamente.' };
+    }
+    if (res.redirected && res.url.includes('/login')) {
+        return { ok: false, mensagem: 'Sua sessão expirou. Entre novamente.' };
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* corpo vazio ou não-JSON */ }
+    if (data && typeof data === 'object' && 'ok' in data) {
+        if (!data.ok && !data.mensagem) data.mensagem = mensagemPorStatus(res.status);
+        return data;
+    }
+    if (res.ok) return { ok: true, mensagem: 'Operação realizada.', dados: data };
+    return { ok: false, mensagem: mensagemPorStatus(res.status) };
 }
 
-async function deleteJson(url) {
-    const res = await fetch(url, {
-        method: 'DELETE',
-        headers: { 'X-XSRF-TOKEN': getCsrf() }
-    });
-    return res.json();
+function mensagemPorStatus(status) {
+    if (status === 401) return 'Sua sessão expirou. Entre novamente.';
+    if (status === 403) return 'Requisição recusada por segurança. Recarregue a página e tente de novo.';
+    if (status === 404) return 'Recurso não encontrado.';
+    if (status >= 500) return 'Erro interno no servidor. Tente novamente em instantes.';
+    return 'Não foi possível concluir a operação.';
 }
+
+const postJson   = (url, body) => requisicao(url, 'POST', body);
+const deleteJson = (url)       => requisicao(url, 'DELETE');
 
 // ---------- Saldo toggle ----------
 function toggleSaldo(btn) {
@@ -68,7 +86,7 @@ function toggleSaldo(btn) {
         el.textContent = oculto ? real : '••••••••';
         el.setAttribute('data-oculto', !oculto);
         el.style.opacity = '1';
-        icon.className = oculto ? 'bi bi-eye-slash' : 'bi bi-eye';
+        icon.className = oculto ? 'bi bi-eye-slash-fill' : 'bi bi-eye-fill';
     }, 180);
 }
 

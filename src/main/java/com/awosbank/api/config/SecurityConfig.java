@@ -10,7 +10,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -51,7 +53,14 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/logout").logoutSuccessUrl("/login?logout").permitAll()
                 )
-                .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                // O app.js (fetch) lê o cookie XSRF-TOKEN e o devolve no header X-XSRF-TOKEN.
+                // O handler padrão do Spring Security 6 espera o token "mascarado" (XOR) no header,
+                // então o valor cru do cookie era rejeitado com 403. Usamos o handler simples e
+                // forçamos a emissão do cookie em toda resposta (CsrfCookieFilter).
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .headers(h -> h.frameOptions(f -> f.deny()));
         return http.build();
     }

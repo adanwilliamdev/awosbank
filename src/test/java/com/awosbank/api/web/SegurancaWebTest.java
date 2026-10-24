@@ -50,6 +50,19 @@ class SegurancaWebTest {
                 .andExpect(status().isForbidden());
     }
 
+    /** Reproduz o navegador: app.js lê o cookie XSRF-TOKEN e o devolve cru no header X-XSRF-TOKEN. */
+    @Test
+    void chavePixComTokenCsrfDoCookieNoHeaderEhAceita() throws Exception {
+        Usuario u = TestData.novoUsuario(usuarioService, "senha123");
+        mvc.perform(post("/api/pix/keys").with(user(u.getEmail()))
+                        .cookie(new jakarta.servlet.http.Cookie("XSRF-TOKEN", "token-de-teste"))
+                        .header("X-XSRF-TOKEN", "token-de-teste")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"EMAIL\",\"chave\":\"adan95@gmail.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ok").value(true));
+    }
+
     @Test
     void chavePixComPayloadXssEhRecusadaPelaApi() throws Exception {
         Usuario u = TestData.novoUsuario(usuarioService, "senha123");

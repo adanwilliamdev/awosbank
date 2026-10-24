@@ -1,25 +1,22 @@
 <!DOCTYPE html>
-<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" data-bs-theme="dark" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Login · AWOS Bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
-<body class="d-flex align-items-center" style="min-height:100vh;">
+<body class="auth-body d-flex align-items-center">
 <div class="container" style="max-width:420px;">
-    <div class="card" style="box-shadow: var(--shadow-lg); border-radius: var(--radius);">
+    <div class="card card-glass">
         <div class="card-body p-4 p-md-5">
 
             <div class="text-center mb-4">
-                <div class="mb-3 d-inline-flex align-items-center justify-content-center"
-                     style="width:64px;height:64px;border-radius:16px;
-                            background:linear-gradient(135deg,#0d6efd,#6610f2);">
-                    <i class="bi bi-bank2 text-white" style="font-size:1.7rem;"></i>
-                </div>
-                <h4 class="fw-bold mb-1" style="color: var(--text-main);">AWOS Bank</h4>
-                <p class="text-muted small mb-0">Acesse sua conta com segurança</p>
+                <div class="mb-3"><span th:replace="~{fragments/layout :: logo(56)}"></span></div>
+                <h4 class="auth-title mb-1">AWOS<span class="brand-sub">BANK</span></h4>
+                <p class="auth-sub mb-0">Acesse sua conta com segurança</p>
             </div>
 
             <div th:if="${param.error}" class="alert alert-danger py-2 small">Email ou senha inválidos.</div>
@@ -31,7 +28,7 @@
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Email</label>
                     <div class="form-icon-group">
-                        <i class="bi bi-envelope"></i>
+                        <i class="bi bi-envelope-fill"></i>
                         <input type="email" name="username" id="inputEmail"
                                class="form-control" placeholder="seu@email.com" required autofocus>
                     </div>
@@ -40,14 +37,14 @@
                 <div class="mb-4">
                     <label class="form-label small fw-semibold">Senha</label>
                     <div class="form-icon-group">
-                        <i class="bi bi-lock"></i>
+                        <i class="bi bi-lock-fill"></i>
                         <input type="password" name="password" id="inputSenha"
                                class="form-control" placeholder="••••••••" required>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100" style="height:48px;">
-                    Entrar
+                <button type="submit" class="btn btn-primary btn-imposing w-100">
+                    ENTRAR <i class="bi bi-arrow-right-short"></i>
                 </button>
             </form>
 
@@ -61,8 +58,7 @@
 
             <p class="text-center mb-0 small">
                 Não tem conta?
-                <a th:href="@{/cadastro}" class="fw-semibold text-decoration-none"
-                   style="color: var(--primary-color);">Cadastre-se</a>
+                <a th:href="@{/cadastro}" class="fw-semibold text-decoration-none link-accent">Cadastre-se</a>
             </p>
         </div>
     </div>

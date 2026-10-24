@@ -3,45 +3,45 @@
 <body>
 <!-- NAVBAR -->
 <nav th:fragment="navbar(usuario, active)"
-     class="navbar navbar-expand-lg navbar-dark bg-primary">
+     class="navbar navbar-expand-lg navbar-awos">
     <div class="container">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" th:href="@{/dashboard}">
-            <i class="bi bi-bank2"></i> AWOS Bank
+        <a class="navbar-brand d-flex align-items-center gap-2" th:href="@{/dashboard}">
+            <span th:replace="~{fragments/layout :: logo(32)}"></span><span class="brand-text">AWOS<span class="brand-sub">BANK</span></span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+        <button class="navbar-toggler" aria-label="Menu" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="nav">
             <ul class="navbar-nav me-auto ms-lg-4">
                 <li class="nav-item">
                     <a class="nav-link" th:classappend="${active=='dashboard'}?'active fw-bold':''"
-                       th:href="@{/dashboard}"><i class="bi bi-house"></i> Início</a>
+                       th:href="@{/dashboard}"><i class="bi bi-house-door-fill"></i> Início</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" th:classappend="${active=='extrato'}?'active fw-bold':''"
-                       th:href="@{/extrato}"><i class="bi bi-file-text"></i> Extrato</a>
+                       th:href="@{/extrato}"><i class="bi bi-receipt-cutoff"></i> Extrato</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" th:classappend="${active=='pix'}?'active fw-bold':''"
-                       th:href="@{/pix}"><i class="bi bi-qr-code"></i> PIX</a>
+                       th:href="@{/pix}"><i class="bi bi-qr-code-scan"></i> PIX</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" th:classappend="${active=='perfil'}?'active fw-bold':''"
-                       th:href="@{/perfil}"><i class="bi bi-person"></i> Perfil</a>
+                       th:href="@{/perfil}"><i class="bi bi-person-fill"></i> Perfil</a>
                 </li>
             </ul>
             <div class="d-flex align-items-center gap-3">
                 <button type="button" class="notification-btn" title="Notificações">
-                    <i class="bi bi-bell"></i>
+                    <i class="bi bi-bell-fill"></i>
                     <span class="badge-dot"></span>
                 </button>
                 <a th:href="@{/perfil}" class="d-flex align-items-center gap-2 text-decoration-none">
                     <div class="user-avatar" th:text="${usuario.iniciais}">CT</div>
-                    <span class="text-white small d-none d-md-inline"
+                    <span class="nav-username small d-none d-md-inline"
                           th:text="${usuario.primeiroNome}">Cliente</span>
                 </a>
                 <form th:action="@{/logout}" method="post" class="m-0">
-                    <button class="btn btn-sm btn-outline-light" title="Sair">
+                    <button class="btn btn-sm btn-outline-metal" title="Sair">
                         <i class="bi bi-box-arrow-right"></i>
                     </button>
                 </form>
@@ -49,6 +49,26 @@
         </div>
     </div>
 </nav>
+
+<!-- LOGO: monograma "A" angular (facetas) em navy + prata/ouro -->
+<span th:fragment="logo(size)" class="awos-logo">
+    <svg th:attr="width=${size},height=${size}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AWOS Bank">
+        <defs>
+            <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#1b2a47"/><stop offset="1" stop-color="#0a1222"/>
+            </linearGradient>
+            <linearGradient id="lg-metal" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f1f4f9"/><stop offset="1" stop-color="#8d98ab"/>
+            </linearGradient>
+            <linearGradient id="lg-gold" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#e6c885"/><stop offset="1" stop-color="#a77f2e"/>
+            </linearGradient>
+        </defs>
+        <path d="M24 1.5 44.5 13v22L24 46.5 3.5 35V13z" fill="url(#lg-bg)" stroke="#3a4a6b" stroke-width="1.2"/>
+        <path d="M24 10 36.5 38h-6.2L24 23.5 17.7 38h-6.2z" fill="url(#lg-metal)"/>
+        <path d="M18.6 31.5h10.8l1.6 3.8H17z" fill="url(#lg-gold)"/>
+    </svg>
+</span>
 
 <!-- TOASTS -->
 <div th:fragment="toasts">
