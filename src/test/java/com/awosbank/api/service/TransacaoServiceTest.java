@@ -19,6 +19,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+import jakarta.persistence.EntityManager;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -40,12 +42,14 @@ class TransacaoServiceTest {
     @Mock ContaRepository contaRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock PixKeyService pixKeyService;
+    @Mock EntityManager em;
 
     TransacaoService service;
 
     @BeforeEach
     void setUp() {
         service = new TransacaoService(transacaoRepository, contaRepository, passwordEncoder, pixKeyService);
+        ReflectionTestUtils.setField(service, "em", em);
         when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
         when(transacaoRepository.save(any(Transacao.class))).thenAnswer(i -> i.getArgument(0));
     }
@@ -168,6 +172,20 @@ class TransacaoServiceTest {
         InOrder ordem = inOrder(contaRepository);
         ordem.verify(contaRepository).findByIdForUpdate(LOW);
         ordem.verify(contaRepository).findByIdForUpdate(HIGH);
+    }
+
+    @Test
+    void recarregaAContaDoBancoDepoisDeTravar() {
+        Conta origem = conta(LOW, "111111-1", "100.00", StatusConta.ATIVA);
+        Conta destino = conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+
+        service.transferir(donoDe(origem), dto("222222-2", "10.00"));
+
+        InOrder ordem = inOrder(contaRepository, em);
+        ordem.verify(contaRepository).findByIdForUpdate(LOW);
+        ordem.verify(em).refresh(origem);
+        ordem.verify(contaRepository).findByIdForUpdate(HIGH);
+        ordem.verify(em).refresh(destino);
     }
 
     @Test

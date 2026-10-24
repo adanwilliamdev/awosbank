@@ -13,6 +13,8 @@ import com.awosbank.api.dto.ExtratoFiltroDTO;
 import com.awosbank.api.dto.TransacaoView;
 import com.awosbank.api.dto.TransferenciaDTO;
 import com.awosbank.api.exception.BusinessException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,6 +36,9 @@ public class TransacaoService {
     private final ContaRepository contaRepository;
     private final PasswordEncoder passwordEncoder;
     private final PixKeyService pixKeyService;
+
+    @PersistenceContext
+    private EntityManager em;
 
     private static final BigDecimal LIMITE_OPERACAO = new BigDecimal("1000000.00");
 
@@ -126,8 +131,13 @@ public class TransacaoService {
     }
 
     private Conta lockar(UUID contaId) {
-        return contaRepository.findByIdForUpdate(contaId)
+        Conta conta = contaRepository.findByIdForUpdate(contaId)
                 .orElseThrow(() -> new BusinessException("Conta não encontrada"));
+        // Se a conta já estava no contexto de persistência (ex.: carregada por findByNumeroConta antes do lock),
+        // o Hibernate devolve a instância em cache, com o saldo de ANTES da espera pelo lock => atualização perdida.
+        // Recarregar com o lock já adquirido garante o saldo mais recente commitado.
+        em.refresh(conta);
+        return conta;
     }
 
     private void validarSenha(Usuario usuario, String senha) {
