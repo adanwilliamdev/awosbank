@@ -21,6 +21,7 @@
 
             <div th:if="${param.error}" class="alert alert-danger py-2 small">Email ou senha inválidos.</div>
             <div th:if="${param.logout}" class="alert alert-success py-2 small">Logout realizado com sucesso.</div>
+            <div th:if="${param.contaEncerrada}" class="alert alert-info py-2 small">Sua conta foi encerrada. Obrigado por ter sido cliente AWOS Bank.</div>
             <div th:if="${param.emailAlterado}" class="alert alert-info py-2 small">E-mail alterado. Entre novamente com o novo e-mail.</div>
             <div th:if="${sucesso}" class="alert alert-success py-2 small" th:text="${sucesso}"></div>
 
@@ -48,11 +49,6 @@
                 </button>
             </form>
 
-            <div class="text-center mt-3">
-                <button type="button" class="btn-test-fill" onclick="preencherTeste()">
-                    <i class="bi bi-stars"></i> Preencher dados de teste
-                </button>
-            </div>
 
             <hr class="my-4">
 
@@ -64,29 +60,5 @@
     </div>
 </div>
 
-<script>
-    function preencherTeste() {
-        const email = document.getElementById('inputEmail');
-        const senha = document.getElementById('inputSenha');
-
-        email.value = '';
-        senha.value = '';
-
-        const login = 'cliente@awosbank.com';
-        const pass = '123456';
-        let i = 0, j = 0;
-
-        const typeEmail = setInterval(() => {
-            email.value = login.substring(0, ++i);
-            if (i === login.length) {
-                clearInterval(typeEmail);
-                const typePass = setInterval(() => {
-                    senha.value = pass.substring(0, ++j);
-                    if (j === pass.length) clearInterval(typePass);
-                }, 40);
-            }
-        }, 30);
-    }
-</script>
 </body>
 </html>

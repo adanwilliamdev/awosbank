@@ -174,3 +174,128 @@ function aplicarMascaraTelefone(input) {
     }
     input.value = value;
 }
+
+// ==========================================
+// NOTIFICAÇÕES (sino da barra superior)
+// ==========================================
+// Mostra as movimentações recentes da conta. "Não lida" = mais nova que a última vez em que o
+// painel foi aberto; esse marcador fica no localStorage, separado por usuário.
+(function () {
+    const wrapper = document.querySelector('.notification-wrapper');
+    if (!wrapper) return;
+
+    const btn = wrapper.querySelector('.notification-btn');
+    const dot = wrapper.querySelector('.badge-dot');
+    const lista = wrapper.querySelector('[data-notif-lista]');
+    const limpar = wrapper.querySelector('[data-notif-limpar]');
+    const chave = 'awos:notif:visto:' + (wrapper.dataset.usuario || 'anon');
+
+    let itens = [];
+    let vistoAte = lerVisto();
+
+    function lerVisto() {
+        try { return localStorage.getItem(chave) || ''; } catch (e) { return ''; }
+    }
+    function gravarVisto(valor) {
+        try { localStorage.setItem(chave, valor); } catch (e) { /* storage indisponível: segue sem persistir */ }
+    }
+    // dataHora vem em ISO sem fuso (ex.: 2026-10-29T14:05:33.123), então a comparação textual é segura.
+    const ehNova = (n) => n.dataHora > vistoAte;
+
+    function atualizarBadge() {
+        const novas = itens.some(ehNova);
+        dot.hidden = !novas;
+        limpar.hidden = !novas;
+    }
+
+    function renderizar() {
+        lista.replaceChildren();
+        if (!itens.length) {
+            const vazio = document.createElement('div');
+            vazio.className = 'notification-empty';
+            vazio.textContent = 'Nenhuma notificação por enquanto.';
+            lista.appendChild(vazio);
+            return;
+        }
+        itens.forEach((n) => {
+            const a = document.createElement('a');
+            a.className = 'notification-item ' + (n.entrada ? 'entrada' : 'saida') + (ehNova(n) ? ' nova' : '');
+            a.href = '/comprovante/' + encodeURIComponent(n.comprovante);
+
+            const icone = document.createElement('span');
+            icone.className = 'notification-icon';
+            const i = document.createElement('i');
+            i.className = 'bi ' + (n.entrada ? 'bi-arrow-down-left' : 'bi-arrow-up-right');
+            icone.appendChild(i);
+
+            const corpo = document.createElement('div');
+            corpo.className = 'notification-body';
+            const titulo = document.createElement('div');
+            titulo.className = 'notification-title';
+            titulo.textContent = n.titulo;
+            const desc = document.createElement('div');
+            desc.className = 'notification-desc';
+            desc.textContent = n.descricao;
+            const meta = document.createElement('div');
+            meta.className = 'notification-meta';
+            const quando = document.createElement('span');
+            quando.textContent = new Date(n.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+            const valor = document.createElement('span');
+            valor.className = 'notification-valor';
+            valor.textContent = (n.entrada ? '+ ' : '- ') + formatBRL(n.valor);
+            meta.append(quando, valor);
+
+            corpo.append(titulo, desc, meta);
+            a.append(icone, corpo);
+            lista.appendChild(a);
+        });
+    }
+
+    async function carregar() {
+        try {
+            const res = await fetch('/api/notificacoes', {
+                headers: { 'Accept': 'application/json' }, credentials: 'same-origin'
+            });
+            if (!res.ok || res.redirected) throw new Error('status ' + res.status);
+            const data = await res.json();
+            itens = Array.isArray(data) ? data : [];
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function marcarComoLidas() {
+        if (itens.length) {
+            vistoAte = itens.reduce((max, n) => (n.dataHora > max ? n.dataHora : max), vistoAte);
+            gravarVisto(vistoAte);
+        }
+        atualizarBadge();
+        lista.querySelectorAll('.notification-item.nova').forEach((el) => el.classList.remove('nova'));
+    }
+
+    // Ao abrir: busca dados frescos, desenha (destacando o que é novo) e só então marca como lido.
+    btn.addEventListener('show.bs.dropdown', async () => {
+        const ok = await carregar();
+        if (!ok) {
+            lista.replaceChildren();
+            const erro = document.createElement('div');
+            erro.className = 'notification-empty';
+            erro.textContent = 'Não foi possível carregar as notificações.';
+            lista.appendChild(erro);
+            return;
+        }
+        renderizar();
+        atualizarBadge();
+    });
+    btn.addEventListener('hide.bs.dropdown', marcarComoLidas);
+    limpar.addEventListener('click', marcarComoLidas);
+
+    // Estado inicial do indicador + atualização periódica (só enquanto a aba está visível).
+    const sondar = async () => {
+        if (document.hidden || wrapper.querySelector('.dropdown-menu.show')) return;
+        if (await carregar()) atualizarBadge();
+    };
+    sondar();
+    setInterval(sondar, 60000);
+})();

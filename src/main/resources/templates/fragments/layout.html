@@ -36,10 +36,24 @@
             </ul>
             <div class="d-flex align-items-center gap-3">
                 <span class="status-pill d-none d-xl-inline-flex"><span class="status-dot"></span>status: online</span>
-                <button type="button" class="notification-btn" title="Notificações">
-                    <i class="bi bi-bell-fill"></i>
-                    <span class="badge-dot"></span>
-                </button>
+                <div class="dropdown notification-wrapper" th:attr="data-usuario=${usuario.id}">
+                    <button type="button" class="notification-btn" id="notificacaoBtn" title="Notificações"
+                            aria-label="Notificações" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                            aria-expanded="false">
+                        <i class="bi bi-bell-fill"></i>
+                        <span class="badge-dot" hidden></span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end notification-menu" aria-labelledby="notificacaoBtn">
+                        <div class="notification-header">
+                            <span>Notificações</span>
+                            <button type="button" class="notification-clear" data-notif-limpar hidden>Marcar como lidas</button>
+                        </div>
+                        <div class="notification-list" data-notif-lista>
+                            <div class="notification-empty">Carregando…</div>
+                        </div>
+                        <a class="notification-footer" th:href="@{/extrato}">Ver extrato completo <i class="bi bi-chevron-right"></i></a>
+                    </div>
+                </div>
                 <a th:href="@{/perfil}" class="d-flex align-items-center gap-2 text-decoration-none ps-2" style="border-left:1px solid var(--border-color);">
                     <div class="user-avatar" th:text="${usuario.iniciais}">CT</div>
                     <span class="nav-username small d-none d-md-inline"

@@ -10,7 +10,8 @@ public enum AcaoAuditoria {
     DEPOSITO("Depósito"),
     SAQUE("Saque"),
     PIX_CHAVE_CADASTRADA("Chave PIX cadastrada"),
-    PIX_CHAVE_REMOVIDA("Chave PIX removida");
+    PIX_CHAVE_REMOVIDA("Chave PIX removida"),
+    CONTA_ENCERRADA("Conta encerrada");
 
     private final String descricao;
 
