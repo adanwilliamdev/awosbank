@@ -11,8 +11,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Permissões globais atualizadas para suportar o Dependabot
 permissions:
   contents: read
+  packages: write # Necessário para o GITHUB_TOKEN publicar no ghcr.io
 
 env:
   REGISTRY: ghcr.io
@@ -25,6 +27,9 @@ jobs:
   test:
     name: Build e testes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write # ADICIONADO: Permite o upload de artefatos pelo Dependabot
     steps:
       - uses: actions/checkout@v4
 
