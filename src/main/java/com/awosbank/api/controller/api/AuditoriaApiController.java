@@ -3,7 +3,9 @@ package com.awosbank.api.controller.api;
 import com.awosbank.api.dto.AuditoriaResposta;
 import com.awosbank.api.dto.PaginaAuditoria;
 import com.awosbank.api.domain.model.Auditoria;
+import com.awosbank.api.domain.model.Usuario;
 import com.awosbank.api.service.AuditoriaService;
+import com.awosbank.api.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +27,7 @@ public class AuditoriaApiController {
     private static final int TAMANHO_MAXIMO = 100;
 
     private final AuditoriaService auditoriaService;
+    private final UsuarioService usuarioService;
 
     @Operation(summary = "Lista o histórico de auditoria do cliente",
             description = "Logins, transferências, depósitos, saques, alterações de perfil e chaves PIX — "
@@ -36,7 +39,8 @@ public class AuditoriaApiController {
             Authentication auth) {
         int p = Math.max(pagina, 0);
         int t = Math.min(Math.max(tamanho, 1), TAMANHO_MAXIMO);
-        Page<Auditoria> page = auditoriaService.listarDoUsuario(auth.getName(), PageRequest.of(p, t));
+        Usuario usuario = usuarioService.buscarPorEmail(auth.getName());
+        Page<Auditoria> page = auditoriaService.listarDoUsuario(usuario.getId(), PageRequest.of(p, t));
         return PaginaAuditoria.de(page, page.getContent().stream().map(AuditoriaResposta::de).toList());
     }
 }

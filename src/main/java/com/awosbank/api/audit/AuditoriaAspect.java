@@ -37,19 +37,39 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuditoriaAspect {
 
+    private static final String ANONIMO = "anonimo";
+
     private final AuditoriaService auditoriaService;
 
     @Around("@annotation(auditado)")
     public Object auditar(ProceedingJoinPoint pjp, Auditado auditado) throws Throwable {
         Object[] args = pjp.getArgs();
+        String ator = ator(args);
+        // O ID é resolvido ANTES de executar: operações como o encerramento de conta apagam o usuário,
+        // e depois delas o e-mail já não resolve para ninguém (o registro ficaria sem dono).
+        UUID usuarioId = idDoAtor(args, ator);
         try {
             Object resultado = pjp.proceed();
-            auditoriaService.registrar(auditado.value(), ator(args), true, detalhes(args, resultado, null));
+            if (usuarioId == null && resultado instanceof Usuario criado) {
+                usuarioId = criado.getId(); // cadastro: o usuário só passa a existir agora
+            }
+            auditoriaService.registrar(auditado.value(), usuarioId, ator, true, detalhes(args, resultado, null));
             return resultado;
         } catch (Throwable erro) {
-            auditoriaService.registrar(auditado.value(), ator(args), false, detalhes(args, null, erro));
+            auditoriaService.registrar(auditado.value(), usuarioId, ator, false, detalhes(args, null, erro));
             throw erro;
         }
+    }
+
+    /** ID estável do ator: o do {@link Usuario} recebido como argumento (sem consulta) ou, senão, o resolvido pelo e-mail. */
+    private UUID idDoAtor(Object[] args, String ator) {
+        if (ANONIMO.equals(ator)) return null;
+        for (Object arg : args) {
+            if (arg instanceof Usuario u && u.getId() != null && ator.equalsIgnoreCase(u.getEmail())) {
+                return u.getId();
+            }
+        }
+        return auditoriaService.buscarIdPorEmail(ator);
     }
 
     /** Quem executou: usuário autenticado; senão, o e-mail informado no argumento (ex.: cadastro). */
@@ -63,7 +83,7 @@ public class AuditoriaAspect {
             if (arg instanceof Usuario u && u.getEmail() != null) return u.getEmail();
             if (arg instanceof CadastroDTO c && c.getEmail() != null) return c.getEmail();
         }
-        return "anonimo";
+        return ANONIMO;
     }
 
     static String detalhes(Object[] args, Object resultado, Throwable erro) {

@@ -12,15 +12,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 class AuditoriaAspectTest {
@@ -69,7 +72,7 @@ class AuditoriaAspectTest {
 
         assertSame(t, retorno);
         ArgumentCaptor<String> detalhes = ArgumentCaptor.forClass(String.class);
-        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq("cliente@awosbank.com"),
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), isNull(), eq("cliente@awosbank.com"),
                 eq(true), detalhes.capture());
         assertTrue(detalhes.getValue().contains("comprovante=CMP-123"));
         assertTrue(detalhes.getValue().contains("valor=150.00"));
@@ -88,7 +91,7 @@ class AuditoriaAspectTest {
 
         assertSame(erro, lancada);
         ArgumentCaptor<String> detalhes = ArgumentCaptor.forClass(String.class);
-        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq("cliente@awosbank.com"),
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), isNull(), eq("cliente@awosbank.com"),
                 eq(false), detalhes.capture());
         assertTrue(detalhes.getValue().contains("motivo=Saldo insuficiente"));
         assertFalse(detalhes.getValue().contains("SEGREDO"));
@@ -102,7 +105,9 @@ class AuditoriaAspectTest {
         assertThrows(IllegalStateException.class, () -> aspect.auditar(pjp, auditado));
 
         ArgumentCaptor<String> detalhes = ArgumentCaptor.forClass(String.class);
-        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq("anonimo"), eq(false), detalhes.capture());
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), isNull(), eq("anonimo"), eq(false),
+                detalhes.capture());
+        verify(auditoriaService, never()).buscarIdPorEmail(any());
         assertTrue(detalhes.getValue().contains("IllegalStateException"));
         assertFalse(detalhes.getValue().contains("jdbc"));
     }
@@ -117,8 +122,74 @@ class AuditoriaAspectTest {
 
         aspect.auditar(pjp, auditado);
 
-        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq("logado@awosbank.com"), eq(true),
-                eq("valor=5.00"));
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), isNull(), eq("logado@awosbank.com"),
+                eq(true), eq("valor=5.00"));
+    }
+
+    private static void autenticarComo(String email) {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                email, "n/a", AuthorityUtils.createAuthorityList("ROLE_CLIENTE")));
+    }
+
+    @Test
+    void usaOIdDoUsuarioRecebidoComoArgumentoSemConsultarOBanco() throws Throwable {
+        UUID id = UUID.randomUUID();
+        Usuario u = Usuario.builder().id(id).email("cliente@awosbank.com").build();
+        when(pjp.getArgs()).thenReturn(new Object[]{u, new BigDecimal("5.00")});
+        when(pjp.proceed()).thenReturn(null);
+
+        aspect.auditar(pjp, auditado);
+
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq(id), eq("cliente@awosbank.com"),
+                eq(true), eq("valor=5.00"));
+        verify(auditoriaService, never()).buscarIdPorEmail(any());
+    }
+
+    @Test
+    void resolveOIdAntesDeExecutarParaSobreviverAoEncerramentoDaConta() throws Throwable {
+        // Ex.: encerrar(email, senha) apaga o usuário; depois disso o e-mail não resolve mais para ninguém.
+        UUID id = UUID.randomUUID();
+        autenticarComo("cliente@awosbank.com");
+        when(auditoriaService.buscarIdPorEmail("cliente@awosbank.com")).thenReturn(id);
+        when(pjp.getArgs()).thenReturn(new Object[]{"cliente@awosbank.com", "senha"});
+        when(pjp.proceed()).thenReturn(null);
+
+        aspect.auditar(pjp, auditado);
+
+        InOrder ordem = inOrder(auditoriaService, pjp);
+        ordem.verify(auditoriaService).buscarIdPorEmail("cliente@awosbank.com");
+        ordem.verify(pjp).proceed();
+        ordem.verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq(id),
+                eq("cliente@awosbank.com"), eq(true), any());
+    }
+
+    @Test
+    void falhaTambemFicaVinculadaAoIdResolvidoAntes() throws Throwable {
+        UUID id = UUID.randomUUID();
+        autenticarComo("cliente@awosbank.com");
+        when(auditoriaService.buscarIdPorEmail("cliente@awosbank.com")).thenReturn(id);
+        when(pjp.getArgs()).thenReturn(new Object[]{"cliente@awosbank.com", "errada"});
+        when(pjp.proceed()).thenThrow(new BusinessException("Senha incorreta"));
+
+        assertThrows(BusinessException.class, () -> aspect.auditar(pjp, auditado));
+
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq(id), eq("cliente@awosbank.com"),
+                eq(false), any());
+    }
+
+    @Test
+    void cadastroUsaOIdDoUsuarioCriadoRetornadoPelaOperacao() throws Throwable {
+        UUID novoId = UUID.randomUUID();
+        com.awosbank.api.dto.CadastroDTO cadastro = new com.awosbank.api.dto.CadastroDTO();
+        cadastro.setEmail("novo@awosbank.com");
+        Usuario criado = Usuario.builder().id(novoId).email("novo@awosbank.com").build();
+        when(pjp.getArgs()).thenReturn(new Object[]{cadastro});
+        when(pjp.proceed()).thenReturn(criado);
+
+        aspect.auditar(pjp, auditado);
+
+        verify(auditoriaService).registrar(eq(AcaoAuditoria.TRANSFERENCIA), eq(novoId), eq("novo@awosbank.com"),
+                eq(true), any());
     }
 
     @Test

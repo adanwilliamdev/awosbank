@@ -53,6 +53,7 @@ O projeto simula a experiência de um banco digital, combinando processamento no
 - Registro de **cadastro, login (sucesso e falha), transferências, depósitos, saques, alterações de perfil, chaves PIX e encerramento de conta**.
 - Tentativas que **falham** (saldo insuficiente, senha incorreta…) também ficam registradas — gravadas em transação própria, então sobrevivem ao rollback da operação.
 - Cada registro guarda usuário, ação, resultado, detalhes e IP de origem. **Nunca** senhas.
+- O histórico pertence ao **ID do usuário** (`auditoria.usuario_id`), não ao e-mail: ao encerrar a conta o e-mail é liberado, e quem se cadastrar depois com ele **não** herda o histórico anterior. O registro do encerramento é preservado (sem FK, vinculado ao ID da conta encerrada).
 - Tabela *append-only*: um trigger do PostgreSQL bloqueia `UPDATE` e `DELETE`.
 - Consulta pelo próprio cliente em `GET /api/auditoria`.
 
@@ -127,7 +128,7 @@ docker compose up -d db      # PostgreSQL em localhost:5432
 mvn spring-boot:run          # perfil "dev": cria o schema via Flyway e semeia o usuário de demonstração
 ```
 
-O schema é criado e versionado pelo **Flyway** (`src/main/resources/db/migration`). O Hibernate roda com `ddl-auto=validate`: se uma entidade divergir das migrations, a aplicação não sobe. Para mudar o banco, crie uma nova migration (`V3__descricao.sql`) — nunca edite uma já aplicada.
+O schema é criado e versionado pelo **Flyway** (`src/main/resources/db/migration`). O Hibernate roda com `ddl-auto=validate`: se uma entidade divergir das migrations, a aplicação não sobe. Para mudar o banco, crie uma nova migration (`V4__descricao.sql`) — nunca edite uma já aplicada.
 
 ### Variáveis de ambiente
 
@@ -165,7 +166,7 @@ mvn verify     # + relatório de cobertura (target/site/jacoco/index.html)
 | Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `DocumentoValidatorTest` |
 | Repositórios (`@DataJpaTest`) | `RepositoriosJpaTest` |
 | Integração (contexto Spring completo) | `ApiIntegrationTest`, `AuditoriaIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest` |
-| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints e o trigger da auditoria. Pulado automaticamente se não houver Docker. |
+| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, o trigger da auditoria e o backfill da `V3`. Pulado automaticamente se não houver Docker. |
 
 ## 🔄 CI/CD
 

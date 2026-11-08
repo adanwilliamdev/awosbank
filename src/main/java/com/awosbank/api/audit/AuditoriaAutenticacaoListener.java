@@ -17,13 +17,13 @@ public class AuditoriaAutenticacaoListener {
 
     @EventListener
     public void aoAutenticar(AuthenticationSuccessEvent evento) {
-        auditoriaService.registrar(AcaoAuditoria.LOGIN_SUCESSO, evento.getAuthentication().getName(), true, null);
+        auditoriaService.registrarPorEmail(AcaoAuditoria.LOGIN_SUCESSO, evento.getAuthentication().getName(), true, null);
     }
 
     @EventListener
     public void aoFalhar(AbstractAuthenticationFailureEvent evento) {
         // só o tipo da falha: nunca a senha informada
-        auditoriaService.registrar(AcaoAuditoria.LOGIN_FALHA, evento.getAuthentication().getName(), false,
+        auditoriaService.registrarPorEmail(AcaoAuditoria.LOGIN_FALHA, evento.getAuthentication().getName(), false,
                 "motivo=" + evento.getException().getClass().getSimpleName());
     }
 }

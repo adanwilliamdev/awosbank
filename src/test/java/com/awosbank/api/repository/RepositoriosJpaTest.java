@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -118,12 +119,14 @@ class RepositoriosJpaTest {
 
     @Test
     void auditoriaListaSoDoUsuarioEmOrdemDecrescenteComPaginacao() {
-        grava("ana@x.com", AcaoAuditoria.LOGIN_SUCESSO, agora.minusMinutes(3));
-        grava("ana@x.com", AcaoAuditoria.DEPOSITO, agora.minusMinutes(2));
-        grava("ana@x.com", AcaoAuditoria.SAQUE, agora.minusMinutes(1));
-        grava("bia@x.com", AcaoAuditoria.TRANSFERENCIA, agora);
+        UUID ana = UUID.randomUUID();
+        UUID bia = UUID.randomUUID();
+        grava(ana, "ana@x.com", AcaoAuditoria.LOGIN_SUCESSO, agora.minusMinutes(3));
+        grava(ana, "ana@x.com", AcaoAuditoria.DEPOSITO, agora.minusMinutes(2));
+        grava(ana, "ana@x.com", AcaoAuditoria.SAQUE, agora.minusMinutes(1));
+        grava(bia, "bia@x.com", AcaoAuditoria.TRANSFERENCIA, agora);
 
-        Page<Auditoria> pagina = auditoriaRepository.findByUsuarioEmailOrderByDataHoraDesc("ana@x.com", PageRequest.of(0, 2));
+        Page<Auditoria> pagina = auditoriaRepository.findByUsuarioIdOrderByDataHoraDesc(ana, PageRequest.of(0, 2));
 
         assertEquals(3, pagina.getTotalElements());
         assertEquals(List.of(AcaoAuditoria.SAQUE, AcaoAuditoria.DEPOSITO),
@@ -131,7 +134,20 @@ class RepositoriosJpaTest {
         assertEquals(1, auditoriaRepository.countByUsuarioEmailAndAcao("bia@x.com", AcaoAuditoria.TRANSFERENCIA));
     }
 
-    private void grava(String email, AcaoAuditoria acao, LocalDateTime quando) {
-        auditoriaRepository.save(Auditoria.builder().usuarioEmail(email).acao(acao).sucesso(true).dataHora(quando).build());
+    @Test
+    void mesmoEmailComIdsDiferentesNaoMisturaHistoricos() {
+        UUID titularAntigo = UUID.randomUUID();
+        UUID titularNovo = UUID.randomUUID();
+        grava(titularAntigo, "reuso@x.com", AcaoAuditoria.DEPOSITO, agora.minusDays(10));
+        grava(titularNovo, "reuso@x.com", AcaoAuditoria.CADASTRO, agora);
+
+        Page<Auditoria> doNovo = auditoriaRepository.findByUsuarioIdOrderByDataHoraDesc(titularNovo, PageRequest.of(0, 10));
+
+        assertEquals(List.of(AcaoAuditoria.CADASTRO), doNovo.getContent().stream().map(Auditoria::getAcao).toList());
+    }
+
+    private void grava(UUID usuarioId, String email, AcaoAuditoria acao, LocalDateTime quando) {
+        auditoriaRepository.save(Auditoria.builder().usuarioId(usuarioId).usuarioEmail(email).acao(acao)
+                .sucesso(true).dataHora(quando).build());
     }
 }

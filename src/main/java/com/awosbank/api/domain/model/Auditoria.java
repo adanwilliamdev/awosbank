@@ -15,6 +15,10 @@ import java.util.UUID;
 /**
  * Registro do histórico de auditoria. Append-only: a entidade é {@link Immutable} (o Hibernate nunca
  * emite UPDATE) e, no PostgreSQL, um trigger bloqueia UPDATE/DELETE (ver migration V2).
+ *
+ * <p>O dono do registro é identificado por {@link #usuarioId} (UUID, nunca reaproveitado) — e NÃO pelo
+ * e-mail, que é liberado quando a conta é encerrada e pode ser reutilizado por outra pessoa.
+ * {@link #usuarioEmail} fica apenas como informação do momento do evento (migration V3).
  */
 @Entity
 @Immutable
@@ -31,6 +35,10 @@ public class Auditoria {
 
     @Column(nullable = false)
     private LocalDateTime dataHora;
+
+    /** Dono do registro. Sem FK: o usuário pode ser excluído (encerramento) e o registro permanece. Nulo se o ator não é um usuário cadastrado. */
+    @Column(name = "usuario_id")
+    private UUID usuarioId;
 
     @Column(nullable = false, length = 120)
     private String usuarioEmail;

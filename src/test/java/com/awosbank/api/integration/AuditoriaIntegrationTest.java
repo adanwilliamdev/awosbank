@@ -6,16 +6,22 @@ import com.awosbank.api.domain.enums.TipoTransacao;
 import com.awosbank.api.domain.model.Auditoria;
 import com.awosbank.api.domain.model.Usuario;
 import com.awosbank.api.domain.repository.AuditoriaRepository;
+import com.awosbank.api.dto.CadastroDTO;
 import com.awosbank.api.dto.TransferenciaDTO;
 import com.awosbank.api.exception.BusinessException;
 import com.awosbank.api.service.AuditoriaService;
+import com.awosbank.api.service.EncerramentoContaService;
 import com.awosbank.api.service.TransacaoService;
 import com.awosbank.api.service.UsuarioService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,11 +43,17 @@ class AuditoriaIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UsuarioService usuarioService;
     @Autowired TransacaoService transacaoService;
+    @Autowired EncerramentoContaService encerramentoContaService;
     @Autowired AuditoriaService auditoriaService;
     @Autowired AuditoriaRepository auditoriaRepository;
 
     private List<Auditoria> historico(Usuario u) {
-        return auditoriaService.listarDoUsuario(u.getEmail(), PageRequest.of(0, 50)).getContent();
+        return auditoriaService.listarDoUsuario(u.getId(), PageRequest.of(0, 50)).getContent();
+    }
+
+    @AfterEach
+    void limparContextoDeSeguranca() {
+        SecurityContextHolder.clearContext();
     }
 
     private TransferenciaDTO transferencia(Usuario destino, String valor, String senha) {
@@ -98,6 +110,55 @@ class AuditoriaIntegrationTest {
                 .filter(a -> a.getAcao() == AcaoAuditoria.LOGIN_FALHA).findFirst().orElseThrow();
         assertFalse(falha.isSucesso());
         assertFalse(falha.getDetalhes().contains("errada"), "a senha digitada nunca é auditada");
+    }
+
+    @Test
+    void quemReaproveitaOEmailDeUmaContaEncerradaNaoEnxergaOHistoricoAnterior() {
+        Usuario antigo = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(antigo, new BigDecimal("50.00"));
+        transacaoService.sacar(antigo, new BigDecimal("50.00"));
+
+        // encerramento feito pelo próprio titular (o ator vem do contexto de segurança, como na requisição web)
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                antigo.getEmail(), "n/a", AuthorityUtils.createAuthorityList("ROLE_CLIENTE")));
+        encerramentoContaService.encerrar(antigo.getEmail(), SENHA);
+        SecurityContextHolder.clearContext();
+
+        // outra pessoa passa a usar o mesmo e-mail
+        CadastroDTO dto = new CadastroDTO();
+        dto.setNomeCompleto("Novo Titular");
+        dto.setCpfCnpj(antigo.getCpfCnpj());
+        dto.setEmail(antigo.getEmail());
+        dto.setSenha(SENHA);
+        dto.setConfirmarSenha(SENHA);
+        dto.setTipoConta(antigo.getConta().getTipoConta());
+        Usuario novo = usuarioService.cadastrar(dto);
+
+        assertNotEquals(antigo.getId(), novo.getId());
+        assertEquals(List.of(AcaoAuditoria.CADASTRO), historico(novo).stream().map(Auditoria::getAcao).toList(),
+                "o novo titular só vê o próprio histórico");
+
+        // o registro do encerramento foi preservado, vinculado ao ID do titular antigo
+        assertEquals(AcaoAuditoria.CONTA_ENCERRADA, historico(antigo).get(0).getAcao());
+    }
+
+    @Test
+    void historicoDeUmUsuarioNuncaIncluiRegistrosDeOutro() {
+        Usuario a = TestData.novoUsuario(usuarioService, SENHA);
+        Usuario b = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(b, new BigDecimal("10.00"));
+
+        assertEquals(1, historico(a).size(), "só o CADASTRO de A");
+        assertEquals(2, historico(b).size(), "CADASTRO + DEPOSITO de B");
+    }
+
+    @Test
+    void listarComIdNuloNaoDevolveRegistrosSemDono() throws Exception {
+        String email = "fantasma-" + System.nanoTime() + "@awosbank.test";
+        mvc.perform(post("/login").with(csrf()).param("username", email).param("password", "qualquer"));
+        assertEquals(1, auditoriaRepository.countByUsuarioEmailAndAcao(email, AcaoAuditoria.LOGIN_FALHA));
+
+        assertTrue(auditoriaService.listarDoUsuario(null, PageRequest.of(0, 50)).isEmpty());
     }
 
     @Test
