@@ -80,7 +80,9 @@ class ErroInesperadoIntegrationTest {
                 .andExpect(jsonPath("$.ok").value(false))
                 .andReturn();
 
-        String corpo = resultado.getResponse().getContentAsString();
+        // O JSON sai em UTF-8 sem "charset" no Content-Type; sem informar o charset o MockMvc decodifica como
+        // ISO-8859-1 ("código" vira "cÃ³digo") e a regex abaixo não encontra o código da ocorrência.
+        String corpo = resultado.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertFalse(corpo.contains("segredo") || corpo.contains("jdbc"), "o detalhe interno não pode sair na resposta");
 
         String mensagem = JsonPath.read(corpo, "$.mensagem");
