@@ -10,6 +10,7 @@ import com.awosbank.api.exception.BusinessException;
 import com.awosbank.api.service.TransacaoService;
 import com.awosbank.api.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +28,22 @@ public class TransacaoApiController {
     private final TransacaoService transacaoService;
 
     @Operation(summary = "Realiza uma transferência (PIX ou TED)",
-            description = "O destino pode ser uma chave PIX ou um número de conta. A senha do cliente é exigida para confirmar.")
-    @ApiResponse(responseCode = "200", description = "Transferência realizada")
-    @ApiResponse(responseCode = "400", description = "Saldo insuficiente, senha incorreta, destino inexistente, etc.")
+            description = "O destino pode ser uma chave PIX ou um número de conta. A senha do cliente é exigida para confirmar. "
+                    + "Envie o header Idempotency-Key (até 64 caracteres: letras, números, . _ : -) para tornar a chamada "
+                    + "segura contra reenvio: repetir a mesma chave devolve a transferência já feita, sem debitar de novo.")
+    @ApiResponse(responseCode = "200", description = "Transferência realizada (ou repetida, quando a Idempotency-Key já foi usada)")
+    @ApiResponse(responseCode = "400", description = "Saldo insuficiente, senha incorreta, destino inexistente, "
+            + "chave de idempotência inválida ou reutilizada em outra transferência, etc.")
     @PostMapping("/transferencia")
-    public ResponseEntity<RespostaApi> transferir(@RequestBody TransferenciaDTO dto, Authentication auth) {
+    public ResponseEntity<RespostaApi> transferir(
+            @RequestBody TransferenciaDTO dto,
+            @Parameter(description = "Chave única por tentativa de transferência (ex.: um UUID gerado pelo cliente)")
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication auth) {
+        // O header tem precedência sobre o campo do corpo.
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            dto.setChaveIdempotencia(idempotencyKey);
+        }
         Usuario u = usuarioService.buscarPorEmail(auth.getName());
         Transacao t = transacaoService.transferirPorIdentificador(u, dto);
         return ResponseEntity.ok(RespostaApi.comprovante("Transferência realizada com sucesso!", t.getComprovanteCodigo()));

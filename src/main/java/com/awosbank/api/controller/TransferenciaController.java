@@ -15,6 +15,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.UUID;
+
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/transferencia")
@@ -29,7 +31,9 @@ public class TransferenciaController {
         model.addAttribute("usuario", u);
         model.addAttribute("conta", u.getConta());
         if (!model.containsAttribute("transferenciaDTO")) {
-            model.addAttribute("transferenciaDTO", new TransferenciaDTO());
+            TransferenciaDTO novo = new TransferenciaDTO();
+            novo.setChaveIdempotencia(UUID.randomUUID().toString()); // token novo a cada abertura do formulário
+            model.addAttribute("transferenciaDTO", novo);
         }
         return "transferencia";
     }
@@ -41,6 +45,10 @@ public class TransferenciaController {
                              Model model,
                              RedirectAttributes ra) {
         Usuario u = usuarioService.buscarPorEmail(auth.getName());
+        if (dto.getChaveIdempotencia() == null || dto.getChaveIdempotencia().isBlank()) {
+            // Formulário antigo em cache / token ausente: gera um para que um reenvio da re-renderização seja protegido.
+            dto.setChaveIdempotencia(UUID.randomUUID().toString());
+        }
         if (result.hasErrors()) {
             model.addAttribute("usuario", u);
             model.addAttribute("conta", u.getConta());

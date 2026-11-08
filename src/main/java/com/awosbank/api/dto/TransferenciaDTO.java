@@ -21,4 +21,12 @@ public class TransferenciaDTO {
 
     @NotBlank(message = "Senha é obrigatória para confirmar")
     private String senha;
+
+    /**
+     * Chave de idempotência (opcional). Na API vem do header {@code Idempotency-Key}; no formulário web,
+     * de um token oculto gerado a cada abertura da tela. Reenviar a mesma chave não repete a transferência.
+     */
+    @Size(max = 64, message = "Chave de idempotência deve ter no máximo 64 caracteres")
+    @Pattern(regexp = "^[A-Za-z0-9._:-]*$", message = "Chave de idempotência contém caracteres inválidos")
+    private String chaveIdempotencia;
 }

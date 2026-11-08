@@ -83,7 +83,7 @@ class PostgresMigrationTest {
         Integer aplicadas = jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class);
         assertNotNull(aplicadas);
-        assertTrue(aplicadas >= 3, "esperava V1 (schema), V2 (auditoria) e V3 (usuario_id), veio " + aplicadas);
+        assertTrue(aplicadas >= 4, "esperava V1 (schema), V2 (auditoria), V3 (usuario_id) e V4 (idempotência), veio " + aplicadas);
     }
 
     @Test
@@ -101,6 +101,34 @@ class PostgresMigrationTest {
         Integer registrosDeAuditoria = jdbc.queryForObject(
                 "SELECT count(*) FROM auditoria WHERE usuario_email = ?", Integer.class, a.getEmail());
         assertEquals(3, registrosDeAuditoria, "cadastro + depósito + transferência");
+    }
+
+    @Test
+    void chaveDeIdempotenciaEhUnicaPorContaDeOrigemNoBanco() {
+        Usuario a = TestData.novoUsuario(usuarioService, SENHA);
+        Usuario b = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(a, new BigDecimal("500.00"));
+        String chave = "pg-" + java.util.UUID.randomUUID();
+
+        TransferenciaDTO d = dto(b, "50.00");
+        d.setChaveIdempotencia(chave);
+        var primeira = transacaoService.transferir(a, d);
+        var repetida = transacaoService.transferir(a, d);
+
+        assertEquals(primeira.getComprovanteCodigo(), repetida.getComprovanteCodigo());
+        Integer linhas = jdbc.queryForObject(
+                "SELECT count(*) FROM transacoes WHERE chave_idempotencia = ?", Integer.class, chave);
+        assertEquals(1, linhas, "só uma linha gravada para a chave");
+        // depósitos/saques (sem chave, NULL) não colidem entre si na UNIQUE
+        transacaoService.depositar(a, new BigDecimal("1.00"));
+        transacaoService.depositar(a, new BigDecimal("1.00"));
+
+        // a constraint barra duplicata mesmo que o código esqueça de consultar a chave
+        assertThrows(org.springframework.dao.DuplicateKeyException.class, () -> jdbc.update(
+                "INSERT INTO transacoes (id, conta_origem_id, conta_destino_id, valor, tipo, data_hora,"
+                        + " comprovante_codigo, chave_idempotencia) VALUES (?, ?, ?, 1.00, 'PIX', now(), ?, ?)",
+                java.util.UUID.randomUUID(), a.getConta().getId(), b.getConta().getId(),
+                "CMP-DUP-" + java.util.UUID.randomUUID().toString().substring(0, 8), chave));
     }
 
     @Test

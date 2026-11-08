@@ -165,7 +165,7 @@
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-primary w-100" onclick="executarTransferencia()">
+                <button id="btn-transferir" type="button" class="btn btn-primary w-100" onclick="executarTransferencia()">
                     <i class="bi bi-check2-circle me-1"></i> Confirmar
                 </button>
             </div>
@@ -292,19 +292,34 @@
         });
     });
 
+    // Uma chave por tentativa de transferência: o retry (clique repetido, rede instável) reaproveita a mesma
+    // chave e o servidor devolve a transferência já feita em vez de criar outra. Só gira após sucesso.
+    let chaveTransferencia = novaChaveIdempotencia();
+    let transferenciaEmAndamento = false;
+
     async function executarTransferencia() {
-        const body = {
-            tipo: document.getElementById('tr-tipo').value,
-            numeroContaDestino: document.getElementById('tr-destino').value,
-            valor: extrairValorMoeda('tr-valor'), // <-- Atualizado
-            senha: document.getElementById('tr-senha').value
-        };
-        const r = await postJson('/api/transferencia', body);
-        if (r.ok) {
-            bootstrap.Modal.getInstance(document.getElementById('modalTransferir')).hide();
-            toast(r.mensagem, 'sucesso');
-            setTimeout(() => location.reload(), 1200);
-        } else toast(r.mensagem, 'erro');
+        if (transferenciaEmAndamento) return; // duplo clique
+        transferenciaEmAndamento = true;
+        const botao = document.getElementById('btn-transferir');
+        botao.disabled = true;
+        try {
+            const body = {
+                tipo: document.getElementById('tr-tipo').value,
+                numeroContaDestino: document.getElementById('tr-destino').value,
+                valor: extrairValorMoeda('tr-valor'), // <-- Atualizado
+                senha: document.getElementById('tr-senha').value
+            };
+            const r = await postJson('/api/transferencia', body, { 'Idempotency-Key': chaveTransferencia });
+            if (r.ok) {
+                chaveTransferencia = novaChaveIdempotencia();
+                bootstrap.Modal.getInstance(document.getElementById('modalTransferir')).hide();
+                toast(r.mensagem, 'sucesso');
+                setTimeout(() => location.reload(), 1200);
+            } else toast(r.mensagem, 'erro');
+        } finally {
+            transferenciaEmAndamento = false;
+            botao.disabled = false;
+        }
     }
 
     async function executarDeposito() {

@@ -31,7 +31,11 @@
 
             <div th:if="${erro}" class="alert alert-danger py-2" th:text="${erro}"></div>
 
-            <form th:action="@{/transferencia}" th:object="${transferenciaDTO}" method="post" novalidate>
+            <form th:action="@{/transferencia}" th:object="${transferenciaDTO}" method="post" novalidate
+                  onsubmit="this.querySelector('button[type=submit]').disabled = true">
+                <!-- token de idempotência: um duplo clique ou reenvio do formulário reaproveita a mesma transferência -->
+                <input type="hidden" th:field="*{chaveIdempotencia}">
+
                 <div class="mb-3">
                     <label class="form-label">Tipo</label>
                     <select th:field="*{tipo}" class="form-select">
@@ -69,5 +73,12 @@
 </div>
 
 <div th:replace="~{fragments/layout :: footer}"></div>
+<script>
+    // Voltar pelo histórico restaura a página com o botão desabilitado; reabilita.
+    window.addEventListener('pageshow', () => {
+        const b = document.querySelector('form button[type=submit]');
+        if (b) b.disabled = false;
+    });
+</script>
 </body>
 </html>

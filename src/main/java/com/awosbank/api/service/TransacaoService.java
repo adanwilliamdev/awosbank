@@ -26,6 +26,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -41,6 +42,7 @@ public class TransacaoService {
     private EntityManager em;
 
     private static final BigDecimal LIMITE_OPERACAO = new BigDecimal("1000000.00");
+    private static final int TAMANHO_MAX_CHAVE = 64;
 
     /** Transferência informando o número da conta de destino (formulário web). */
     @Auditado(AcaoAuditoria.TRANSFERENCIA)
@@ -49,7 +51,8 @@ public class TransacaoService {
         validarSenha(usuario, dto.getSenha());
         Conta destino = contaRepository.findByNumeroConta(normalizar(dto.getNumeroContaDestino()))
                 .orElseThrow(() -> new BusinessException("Conta destino não encontrada"));
-        return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo());
+        return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo(),
+                dto.getChaveIdempotencia());
     }
 
     /** Transferência por chave PIX ou número de conta (API). */
@@ -58,7 +61,8 @@ public class TransacaoService {
     public Transacao transferirPorIdentificador(Usuario usuario, TransferenciaDTO dto) {
         validarSenha(usuario, dto.getSenha());
         Conta destino = resolverDestino(dto.getNumeroContaDestino());
-        return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo());
+        return executarTransferencia(usuario, destino.getId(), dto.getValor(), dto.getTipo(),
+                dto.getChaveIdempotencia());
     }
 
     @Auditado(AcaoAuditoria.DEPOSITO)
@@ -94,13 +98,20 @@ public class TransacaoService {
      * Núcleo único da transferência. Bloqueia as DUAS contas com lock pessimista
      * sempre em ordem crescente de ID (evita deadlock em transferências cruzadas
      * A→B e B→A) e só então valida status e saldo sobre os dados frescos do banco.
+     *
+     * <p><b>Idempotência:</b> se o cliente enviou uma chave, ela é consultada DEPOIS do lock da conta de
+     * origem. Duas requisições iguais disputando o lock são serializadas: a segunda acorda, enxerga a
+     * transação que a primeira acabou de commitar e devolve a mesma, sem debitar de novo. A constraint
+     * única (conta_origem_id, chave_idempotencia) é a última barreira no banco.
      */
     private Transacao executarTransferencia(Usuario usuario, UUID destinoId,
-                                            BigDecimal valorInformado, TipoTransacao tipo) {
+                                            BigDecimal valorInformado, TipoTransacao tipo,
+                                            String chaveInformada) {
         if (tipo != TipoTransacao.PIX && tipo != TipoTransacao.TED) {
             throw new BusinessException("Tipo de transferência inválido");
         }
         BigDecimal valor = validarValor(valorInformado, "Valor deve ser maior que zero");
+        String chave = normalizarChave(chaveInformada);
 
         UUID origemId = usuario.getConta().getId();
         if (destinoId.equals(origemId)) {
@@ -112,6 +123,14 @@ public class TransacaoService {
         Conta segunda = lockar(origemPrimeiro ? destinoId : origemId);
         Conta origem = origemPrimeiro ? primeira : segunda;
         Conta destino = origemPrimeiro ? segunda : primeira;
+
+        if (chave != null) {
+            Optional<Transacao> anterior =
+                    transacaoRepository.findByContaOrigemIdAndChaveIdempotencia(origemId, chave);
+            if (anterior.isPresent()) {
+                return reaproveitar(anterior.get(), destinoId, valor, tipo);
+            }
+        }
 
         if (origem.getStatus() != StatusConta.ATIVA) {
             throw new BusinessException("Conta origem não está ativa");
@@ -127,7 +146,33 @@ public class TransacaoService {
         destino.setSaldo(destino.getSaldo().add(valor));
         contaRepository.save(origem);
         contaRepository.save(destino);
-        return registrar(origem, destino, valor, tipo);
+        return registrar(origem, destino, valor, tipo, chave);
+    }
+
+    /**
+     * Repetição de uma chave já usada: devolve a transação original (mesmo comprovante, sem novo débito).
+     * Se o conteúdo for diferente, a chave está sendo reutilizada por engano e a requisição é recusada.
+     */
+    private Transacao reaproveitar(Transacao anterior, UUID destinoId, BigDecimal valor, TipoTransacao tipo) {
+        boolean mesmoDestino = anterior.getContaDestino() != null
+                && anterior.getContaDestino().getId().equals(destinoId);
+        boolean mesmoValor = anterior.getValor().compareTo(valor) == 0;
+        if (!mesmoDestino || !mesmoValor || anterior.getTipo() != tipo) {
+            throw new BusinessException("Chave de idempotência já foi usada em outra transferência");
+        }
+        return anterior;
+    }
+
+    /** Vazia vira null (sem proteção); acima de 64 caracteres ou com caracteres fora do padrão é recusada. */
+    private String normalizarChave(String chave) {
+        if (chave == null || chave.isBlank()) {
+            return null;
+        }
+        String c = chave.trim();
+        if (c.length() > TAMANHO_MAX_CHAVE || !c.matches("[A-Za-z0-9._:-]+")) {
+            throw new BusinessException("Chave de idempotência inválida");
+        }
+        return c;
     }
 
     private Conta lockar(UUID contaId) {
@@ -161,6 +206,11 @@ public class TransacaoService {
     }
 
     private Transacao registrar(Conta origem, Conta destino, BigDecimal valor, TipoTransacao tipo) {
+        return registrar(origem, destino, valor, tipo, null);
+    }
+
+    private Transacao registrar(Conta origem, Conta destino, BigDecimal valor, TipoTransacao tipo,
+                                String chaveIdempotencia) {
         return transacaoRepository.save(Transacao.builder()
                 .contaOrigem(origem)
                 .contaDestino(destino)
@@ -168,6 +218,7 @@ public class TransacaoService {
                 .tipo(tipo)
                 .dataHora(LocalDateTime.now())
                 .comprovanteCodigo(gerarComprovante())
+                .chaveIdempotencia(chaveIdempotencia)
                 .build());
     }
 

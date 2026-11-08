@@ -200,4 +200,97 @@ class TransacaoServiceTest {
         Conta c = conta(LOW, "111111-1", "20.00", StatusConta.BLOQUEADA);
         assertThrows(BusinessException.class, () -> service.depositar(donoDe(c), new BigDecimal("10.00")));
     }
+
+    // ---------------- idempotência ----------------
+
+    private TransferenciaDTO dtoComChave(String contaDestino, String valor, String chave) {
+        TransferenciaDTO d = dto(contaDestino, valor);
+        d.setChaveIdempotencia(chave);
+        return d;
+    }
+
+    @Test
+    void primeiraTransferenciaComChaveGravaAChaveNaTransacao() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+
+        Transacao t = service.transferir(donoDe(origem), dtoComChave("222222-2", "100.00", "chave-1"));
+
+        assertEquals("chave-1", t.getChaveIdempotencia());
+        assertEquals(new BigDecimal("400.00"), origem.getSaldo());
+    }
+
+    @Test
+    void repetirAChaveDevolveATransacaoOriginalSemDebitarDeNovo() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        Conta destino = conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+        Transacao original = Transacao.builder().contaOrigem(origem).contaDestino(destino)
+                .valor(new BigDecimal("100.00")).tipo(TipoTransacao.PIX)
+                .comprovanteCodigo("CMP-ORIGINAL").chaveIdempotencia("chave-1").build();
+        when(transacaoRepository.findByContaOrigemIdAndChaveIdempotencia(LOW, "chave-1"))
+                .thenReturn(Optional.of(original));
+
+        Transacao repetida = service.transferir(donoDe(origem), dtoComChave("222222-2", "100.00", "chave-1"));
+
+        assertSame(original, repetida);
+        assertEquals(new BigDecimal("500.00"), origem.getSaldo(), "não pode debitar de novo");
+        assertEquals(new BigDecimal("0.00"), destino.getSaldo(), "não pode creditar de novo");
+        verify(transacaoRepository, never()).save(any());
+    }
+
+    @Test
+    void repeticaoEhDevolvidaMesmoQueOSaldoJaNaoCubraOValor() {
+        Conta origem = conta(LOW, "111111-1", "0.00", StatusConta.ATIVA);
+        Conta destino = conta(HIGH, "222222-2", "100.00", StatusConta.ATIVA);
+        Transacao original = Transacao.builder().contaOrigem(origem).contaDestino(destino)
+                .valor(new BigDecimal("100.00")).tipo(TipoTransacao.PIX)
+                .comprovanteCodigo("CMP-ORIGINAL").chaveIdempotencia("chave-1").build();
+        when(transacaoRepository.findByContaOrigemIdAndChaveIdempotencia(LOW, "chave-1"))
+                .thenReturn(Optional.of(original));
+
+        // o retry de rede chega depois que o saldo foi gasto: tem que responder sucesso, não "Saldo insuficiente"
+        assertSame(original, service.transferir(donoDe(origem), dtoComChave("222222-2", "100.00", "chave-1")));
+    }
+
+    @Test
+    void chaveReutilizadaComOutroValorOuDestinoEhRecusada() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        Conta destino = conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+        Transacao original = Transacao.builder().contaOrigem(origem).contaDestino(destino)
+                .valor(new BigDecimal("100.00")).tipo(TipoTransacao.PIX)
+                .comprovanteCodigo("CMP-ORIGINAL").chaveIdempotencia("chave-1").build();
+        when(transacaoRepository.findByContaOrigemIdAndChaveIdempotencia(LOW, "chave-1"))
+                .thenReturn(Optional.of(original));
+
+        assertTrue(mensagem(() -> service.transferir(donoDe(origem), dtoComChave("222222-2", "250.00", "chave-1")))
+                .contains("outra transferência"));
+        TransferenciaDTO outroTipo = dtoComChave("222222-2", "100.00", "chave-1");
+        outroTipo.setTipo(TipoTransacao.TED);
+        assertTrue(mensagem(() -> service.transferir(donoDe(origem), outroTipo)).contains("outra transferência"));
+        assertEquals(new BigDecimal("500.00"), origem.getSaldo());
+        verify(transacaoRepository, never()).save(any());
+    }
+
+    @Test
+    void semChaveNadaEhConsultadoENaoHaProtecao() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+
+        Transacao t = service.transferir(donoDe(origem), dtoComChave("222222-2", "10.00", "   "));
+
+        assertNull(t.getChaveIdempotencia());
+        verify(transacaoRepository, never()).findByContaOrigemIdAndChaveIdempotencia(any(), any());
+    }
+
+    @Test
+    void chaveMalFormadaOuLongaDemaisEhRecusada() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+
+        assertEquals("Chave de idempotência inválida",
+                mensagem(() -> service.transferir(donoDe(origem), dtoComChave("222222-2", "10.00", "com espaço"))));
+        assertEquals("Chave de idempotência inválida",
+                mensagem(() -> service.transferir(donoDe(origem), dtoComChave("222222-2", "10.00", "x".repeat(65)))));
+        assertEquals(new BigDecimal("500.00"), origem.getSaldo());
+    }
 }

@@ -25,6 +25,19 @@ O projeto simula a experiência de um banco digital, combinando processamento no
 - Gráfico de entradas e saídas com Chart.js.
 - Ações dinâmicas utilizando AJAX e Fetch API.
 
+### 🔁 Transferências idempotentes
+- Um duplo clique ou um *retry* de rede **não gera duas transferências**. A API aceita o header `Idempotency-Key` em `POST /api/transferencia`; o formulário web envia um token oculto, gerado a cada abertura da tela.
+- A chave (até 64 caracteres: letras, números, `.` `_` `:` `-`) fica na coluna `transacoes.chave_idempotencia`, com `UNIQUE (conta_origem_id, chave_idempotencia)` (migration `V4`). Repetir a mesma chave devolve a transferência original — **mesmo comprovante, sem novo débito** — inclusive se o saldo já não cobrir o valor.
+- Reutilizar a chave com outro valor, destino ou tipo é recusado (`400`).
+- A consulta da chave acontece **depois do lock pessimista** da conta de origem: requisições idênticas simultâneas são serializadas e só a primeira grava; a constraint única é a última barreira no banco.
+- Sem `Idempotency-Key` a chamada funciona como antes (sem essa proteção).
+
+```bash
+curl -X POST http://localhost:8080/api/transferencia \
+  -H "Idempotency-Key: $(uuidgen)" -H "Content-Type: application/json" \
+  -d '{"numeroContaDestino":"123456-7","valor":100.00,"tipo":"PIX","senha":"***"}'
+```
+
 ### 💳 Extrato bancário
 - Consulta ao histórico de transações.
 - Filtros por período, com data inicial e final.
@@ -168,7 +181,7 @@ mvn verify     # + relatório de cobertura (target/site/jacoco/index.html)
 | Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `TratamentoDeErrosTest`, `DocumentoValidatorTest` |
 | Repositórios (`@DataJpaTest`) | `RepositoriosJpaTest` |
 | Integração (contexto Spring completo) | `ApiIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest`, `CadastroConcorrenteTest` |
-| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, corrida de cadastro (e-mail/CPF duplicados), o trigger da auditoria e o backfill da `V3`. Pulado automaticamente se não houver Docker. |
+| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, corrida de cadastro (e-mail/CPF duplicados), o trigger da auditoria, o backfill da `V3` e a unicidade da chave de idempotência (`V4`). Pulado automaticamente se não houver Docker. |
 
 ## 🔄 CI/CD
 
@@ -221,6 +234,7 @@ O AWOS Bank foi desenvolvido para praticar e demonstrar conhecimentos em:
 - [x] Dockerização da aplicação (Dockerfile multi-stage + Docker Compose).
 - [x] Documentação da API com Swagger/OpenAPI.
 - [x] Histórico de auditoria das operações.
+- [x] Idempotência nas transferências (`Idempotency-Key` + constraint única).
 - [x] Pipeline de integração e entrega contínuas (CI/CD).
 
 ## 🔮 Próximos passos

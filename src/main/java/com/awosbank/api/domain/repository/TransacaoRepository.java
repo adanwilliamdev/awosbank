@@ -15,6 +15,9 @@ public interface TransacaoRepository extends JpaRepository<Transacao, UUID> {
 
     Optional<Transacao> findByComprovanteCodigo(String comprovanteCodigo);
 
+    /** Transferência já registrada para esta conta de origem com a chave de idempotência informada. */
+    Optional<Transacao> findByContaOrigemIdAndChaveIdempotencia(UUID contaOrigemId, String chaveIdempotencia);
+
     @Query("""
             SELECT t FROM Transacao t
             WHERE (t.contaOrigem.id = :contaId OR t.contaDestino.id = :contaId)

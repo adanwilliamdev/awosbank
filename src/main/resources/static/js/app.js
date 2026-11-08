@@ -37,8 +37,8 @@ function toast(mensagem, tipo = 'sucesso', duracao = 4000) {
 // ---------- Fetch com CSRF ----------
 // Sempre devolve { ok, mensagem, ... }, mesmo quando o servidor responde 403/401/500 ou algo
 // que não seja JSON (antes isso estourava e o toast aparecia vazio).
-async function requisicao(url, method, body) {
-    const headers = { 'X-XSRF-TOKEN': getCsrf(), 'Accept': 'application/json' };
+async function requisicao(url, method, body, extraHeaders) {
+    const headers = { 'X-XSRF-TOKEN': getCsrf(), 'Accept': 'application/json', ...(extraHeaders || {}) };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let res;
     try {
@@ -70,7 +70,14 @@ function mensagemPorStatus(status) {
     return 'Não foi possível concluir a operação.';
 }
 
-const postJson   = (url, body) => requisicao(url, 'POST', body);
+const postJson   = (url, body, headers) => requisicao(url, 'POST', body, headers);
+
+// ---------- Chave de idempotência ----------
+// randomUUID só existe em contexto seguro (https/localhost); o fallback cobre http em rede local.
+function novaChaveIdempotencia() {
+    if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    return 'k-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+}
 const deleteJson = (url)       => requisicao(url, 'DELETE');
 
 // ---------- Saldo toggle ----------

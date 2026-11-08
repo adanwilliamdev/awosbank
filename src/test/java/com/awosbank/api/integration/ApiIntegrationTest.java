@@ -115,6 +115,72 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void idempotencyKeyRepetidaNaApiDevolveOMesmoComprovanteESoDebitaUmaVez() throws Exception {
+        Usuario origem = TestData.novoUsuario(usuarioService, SENHA);
+        Usuario destino = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(origem, new BigDecimal("500.00"));
+        String corpo = "{\"numeroContaDestino\":\"" + destino.getConta().getNumeroConta()
+                + "\",\"valor\":100.00,\"tipo\":\"PIX\",\"senha\":\"" + SENHA + "\"}";
+        String chave = "retry-" + java.util.UUID.randomUUID();
+
+        String[] comprovantes = new String[2];
+        for (int i = 0; i < 2; i++) {   // a segunda chamada é o retry de rede / duplo clique
+            MvcResult res = mvc.perform(post("/api/transferencia").with(user(origem.getEmail())).with(csrf())
+                            .header("Idempotency-Key", chave)
+                            .contentType(MediaType.APPLICATION_JSON).content(corpo))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.ok").value(true))
+                    .andReturn();
+            comprovantes[i] = JsonPath.read(res.getResponse().getContentAsString(), "$.comprovante");
+        }
+        org.junit.jupiter.api.Assertions.assertEquals(comprovantes[0], comprovantes[1]);
+
+        // 500 - 100 (uma vez só) = 400: um terceiro saque de 400 passa, de 400,01 não
+        mvc.perform(post("/api/saque").with(user(origem.getEmail())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"valor\": 400.01}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value("Saldo insuficiente"));
+        mvc.perform(post("/api/saque").with(user(origem.getEmail())).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"valor\": 400.00}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void idempotencyKeyReutilizadaComOutroValorRetorna400() throws Exception {
+        Usuario origem = TestData.novoUsuario(usuarioService, SENHA);
+        Usuario destino = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(origem, new BigDecimal("500.00"));
+        String chave = "outra-" + java.util.UUID.randomUUID();
+        String modelo = "{\"numeroContaDestino\":\"" + destino.getConta().getNumeroConta()
+                + "\",\"valor\":%s,\"tipo\":\"PIX\",\"senha\":\"" + SENHA + "\"}";
+
+        mvc.perform(post("/api/transferencia").with(user(origem.getEmail())).with(csrf())
+                        .header("Idempotency-Key", chave)
+                        .contentType(MediaType.APPLICATION_JSON).content(String.format(modelo, "100.00")))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/transferencia").with(user(origem.getEmail())).with(csrf())
+                        .header("Idempotency-Key", chave)
+                        .contentType(MediaType.APPLICATION_JSON).content(String.format(modelo, "200.00")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value(containsString("outra transferência")));
+    }
+
+    @Test
+    void idempotencyKeyInvalidaRetorna400() throws Exception {
+        Usuario origem = TestData.novoUsuario(usuarioService, SENHA);
+        Usuario destino = TestData.novoUsuario(usuarioService, SENHA);
+        transacaoService.depositar(origem, new BigDecimal("500.00"));
+        String corpo = "{\"numeroContaDestino\":\"" + destino.getConta().getNumeroConta()
+                + "\",\"valor\":10.00,\"tipo\":\"PIX\",\"senha\":\"" + SENHA + "\"}";
+
+        mvc.perform(post("/api/transferencia").with(user(origem.getEmail())).with(csrf())
+                        .header("Idempotency-Key", "x".repeat(65))
+                        .contentType(MediaType.APPLICATION_JSON).content(corpo))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value("Chave de idempotência inválida"));
+    }
+
+    @Test
     void chavesPixSaoCadastradasListadasERemovidas() throws Exception {
         Usuario u = TestData.novoUsuario(usuarioService, SENHA);
 
