@@ -4,6 +4,7 @@ import com.awosbank.api.TestData;
 import com.awosbank.api.domain.enums.TipoTransacao;
 import com.awosbank.api.domain.model.Usuario;
 import com.awosbank.api.domain.repository.ContaRepository;
+import com.awosbank.api.dto.CadastroDTO;
 import com.awosbank.api.dto.ExtratoFiltroDTO;
 import com.awosbank.api.dto.TransferenciaDTO;
 import com.awosbank.api.exception.BusinessException;
@@ -154,6 +155,53 @@ class PostgresMigrationTest {
 
         // a tabela voltou a ser append-only depois do backfill
         assertThrows(DataAccessException.class, () -> legado.update("UPDATE auditoria SET detalhes = 'x'"));
+    }
+
+    /**
+     * No PostgreSQL de verdade: a violação da UNIQUE só aparece no INSERT (saveAndFlush) e a transação fica
+     * abortada; quem perde a corrida recebe a mesma mensagem de negócio da checagem prévia — e o formato do
+     * erro do banco (constraint/coluna) é o que a classificação por e-mail x CPF espera.
+     */
+    @Test
+    void cadastrosSimultaneosComOMesmoEmailRecebemMensagemDeNegocioNoPostgres() throws Exception {
+        String email = "corrida-" + System.nanoTime() + "@awosbank.test";
+        List<CadastroDTO> dtos = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            int semente = TestData.proximaSemente();
+            dtos.add(TestData.cadastroDto(semente, email, TestData.cpfValido(semente), SENHA));
+        }
+
+        List<Object> resultados = TestData.cadastrarEmParalelo(usuarioService, dtos);
+
+        assertEquals(1, resultados.stream().filter(o -> o instanceof Usuario).count(), resultados.toString());
+        for (Object r : resultados) {
+            if (r instanceof Throwable t) {
+                assertInstanceOf(BusinessException.class, t, resultados.toString());
+                assertEquals("Email já cadastrado", t.getMessage());
+            }
+        }
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM usuarios WHERE email = ?", Integer.class, email));
+    }
+
+    @Test
+    void cadastrosSimultaneosComOMesmoDocumentoRecebemMensagemDeNegocioNoPostgres() throws Exception {
+        String cpf = TestData.cpfValido(TestData.proximaSemente());
+        List<CadastroDTO> dtos = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            int semente = TestData.proximaSemente();
+            dtos.add(TestData.cadastroDto(semente, "cpf-corrida-" + semente + "-" + System.nanoTime() + "@awosbank.test", cpf, SENHA));
+        }
+
+        List<Object> resultados = TestData.cadastrarEmParalelo(usuarioService, dtos);
+
+        assertEquals(1, resultados.stream().filter(o -> o instanceof Usuario).count(), resultados.toString());
+        for (Object r : resultados) {
+            if (r instanceof Throwable t) {
+                assertInstanceOf(BusinessException.class, t, resultados.toString());
+                assertEquals("CPF/CNPJ já cadastrado", t.getMessage());
+            }
+        }
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM usuarios WHERE cpf_cnpj = ?", Integer.class, cpf));
     }
 
     @Test

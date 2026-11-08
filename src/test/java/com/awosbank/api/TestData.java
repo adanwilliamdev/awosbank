@@ -5,6 +5,13 @@ import com.awosbank.api.domain.model.Usuario;
 import com.awosbank.api.dto.CadastroDTO;
 import com.awosbank.api.service.UsuarioService;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Utilitários para criar usuários válidos e únicos nos testes de integração. */
@@ -39,5 +46,51 @@ public final class TestData {
         dto.setConfirmarSenha(senha);
         dto.setTipoConta(TipoConta.CORRENTE);
         return service.cadastrar(dto);
+    }
+
+    /** Semente única (por JVM) para gerar CPF/e-mail que não colidem com os de outros testes. */
+    public static int proximaSemente() {
+        return SEQ.incrementAndGet();
+    }
+
+    public static CadastroDTO cadastroDto(int semente, String email, String cpf, String senha) {
+        CadastroDTO dto = new CadastroDTO();
+        dto.setNomeCompleto("Usuario Teste " + semente);
+        dto.setCpfCnpj(cpf);
+        dto.setEmail(email);
+        dto.setSenha(senha);
+        dto.setConfirmarSenha(senha);
+        dto.setTipoConta(TipoConta.CORRENTE);
+        return dto;
+    }
+
+    /**
+     * Dispara os cadastros ao mesmo tempo (largada sincronizada, uma thread por cadastro) e devolve, na
+     * mesma ordem de {@code dtos}, o {@link Usuario} criado ou a exceção que o cadastro lançou.
+     */
+    public static List<Object> cadastrarEmParalelo(UsuarioService service, List<CadastroDTO> dtos) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(dtos.size());
+        try {
+            CountDownLatch largada = new CountDownLatch(1);
+            List<Future<Object>> futuros = new ArrayList<>();
+            for (CadastroDTO dto : dtos) {
+                futuros.add(pool.submit(() -> {
+                    largada.await();
+                    try {
+                        return service.cadastrar(dto);
+                    } catch (Throwable erro) {
+                        return erro;
+                    }
+                }));
+            }
+            largada.countDown();
+            List<Object> resultados = new ArrayList<>();
+            for (Future<Object> futuro : futuros) {
+                resultados.add(futuro.get(60, TimeUnit.SECONDS));
+            }
+            return resultados;
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }

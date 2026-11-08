@@ -62,6 +62,7 @@ O projeto simula a experiência de um banco digital, combinando processamento no
 - Exibição de recibos em modal.
 - Suporte à impressão de comprovantes.
 - Páginas personalizadas para erros HTTP 404 e 500.
+- **Cadastro e troca de e-mail à prova de corrida:** a checagem prévia dá a mensagem amigável no caminho comum; se duas requisições passarem juntas por ela, a constraint `UNIQUE` do banco decide e quem perde recebe o mesmo erro de negócio ("Email já cadastrado", "CPF/CNPJ já cadastrado") em vez da página de erro inesperado.
 - **Erros inesperados nunca expõem detalhes internos:** o usuário (página web ou JSON da API) recebe uma mensagem genérica com um **código de ocorrência**; o stack trace completo vai para o log (`ERROR`) com o mesmo código, para o suporte localizar o problema. Erros de negócio continuam com a mensagem original, e erros do cliente (400/404/405, acesso negado) mantêm o status HTTP correto em vez de virarem 500.
 
 ---
@@ -166,8 +167,8 @@ mvn verify     # + relatório de cobertura (target/site/jacoco/index.html)
 |---|---|
 | Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `TratamentoDeErrosTest`, `DocumentoValidatorTest` |
 | Repositórios (`@DataJpaTest`) | `RepositoriosJpaTest` |
-| Integração (contexto Spring completo) | `ApiIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest` |
-| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, o trigger da auditoria e o backfill da `V3`. Pulado automaticamente se não houver Docker. |
+| Integração (contexto Spring completo) | `ApiIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest`, `CadastroConcorrenteTest` |
+| Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, corrida de cadastro (e-mail/CPF duplicados), o trigger da auditoria e o backfill da `V3`. Pulado automaticamente se não houver Docker. |
 
 ## 🔄 CI/CD
 

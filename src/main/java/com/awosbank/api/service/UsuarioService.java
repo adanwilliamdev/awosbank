@@ -10,15 +10,23 @@ import com.awosbank.api.dto.CadastroDTO;
 import com.awosbank.api.exception.BusinessException;
 import com.awosbank.api.util.DocumentoValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UsuarioService {
+
+    /** SQLSTATE padrão (ANSI) de violação de UNIQUE: o mesmo no PostgreSQL e no H2. */
+    private static final String SQLSTATE_VIOLACAO_UNICIDADE = "23505";
 
     private final UsuarioRepository usuarioRepository;
     private final ContaService contaService;
@@ -59,8 +67,30 @@ public class UsuarioService {
                 .conta(conta)
                 .build();
 
-        return usuarioRepository.save(usuario);
+        try {
+            // saveAndFlush (e não save): o INSERT precisa acontecer AQUI, dentro do try. Com save() ele só
+            // iria ao banco no commit, depois do método, e a violação escaparia deste catch.
+            return usuarioRepository.saveAndFlush(usuario);
+        } catch (DataIntegrityViolationException e) {
+            // Corrida: outra requisição cadastrou o mesmo e-mail/CPF entre o existsBy... e o INSERT.
+            // A constraint UNIQUE do banco decide quem ganhou; quem perdeu recebe o mesmo erro de negócio
+            // da checagem prévia. (Não dá para reconsultar o banco aqui: no PostgreSQL a transação já está abortada.)
+            String causa = causaDeViolacaoDeUnicidade(e);
+            if (causa == null) {
+                throw e; // outra violação (NOT NULL, tamanho…): bug de verdade, deve ir para o log com código
+            }
+            if (causa.contains("email")) {
+                throw new BusinessException("Email já cadastrado");
+            }
+            if (causa.contains("cpf")) {
+                throw new BusinessException("CPF/CNPJ já cadastrado");
+            }
+            log.warn("Cadastro recusado por violação de unicidade fora de email/cpf_cnpj "
+                    + "(provável colisão no número da conta); o cliente pode tentar de novo");
+            throw new BusinessException("Não foi possível concluir o cadastro agora. Tente novamente.");
+        }
     }
+
     @Auditado(AcaoAuditoria.ATUALIZACAO_PERFIL)
     @Transactional
     public Usuario atualizarPerfil(String emailAtual, com.awosbank.api.dto.PerfilDTO dto) {
@@ -75,7 +105,32 @@ public class UsuarioService {
         u.setTelefone(dto.getTelefone());
         u.setDataNascimento(dto.getDataNascimento());
         u.setEndereco(dto.getEndereco());
-        return usuarioRepository.save(u);
+        try {
+            // saveAndFlush: o UPDATE (e a checagem da UNIQUE) precisa acontecer dentro do try, não no commit.
+            return usuarioRepository.saveAndFlush(u);
+        } catch (DataIntegrityViolationException e) {
+            // Corrida: outro usuário assumiu o e-mail entre o existsByEmail e o UPDATE.
+            // O e-mail é a única coluna única que o perfil altera.
+            if (causaDeViolacaoDeUnicidade(e) == null) {
+                throw e;
+            }
+            throw new BusinessException("Novo email já cadastrado");
+        }
+    }
+
+    /**
+     * Se a exceção é uma violação de UNIQUE (SQLSTATE 23505), devolve a mensagem do banco em minúsculas
+     * (traz a constraint e/ou a coluna: {@code uk_usuarios_email}, {@code Key (cpf_cnpj)=...}, {@code USUARIOS(EMAIL…)});
+     * caso contrário, {@code null}. Olha o SQLSTATE, e não o texto, para não confundir com outras violações
+     * (ex.: NOT NULL na coluna email).
+     */
+    private static String causaDeViolacaoDeUnicidade(DataIntegrityViolationException e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof SQLException sql && SQLSTATE_VIOLACAO_UNICIDADE.equals(sql.getSQLState())) {
+                return String.valueOf(sql.getMessage()).toLowerCase(Locale.ROOT);
+            }
+        }
+        return null;
     }
 
     /** E-mail é case-insensitive na prática: armazena e busca sempre em minúsculas. */
