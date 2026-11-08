@@ -10,6 +10,7 @@ import com.awosbank.api.domain.repository.ContaRepository;
 import com.awosbank.api.domain.repository.PixKeyRepository;
 import com.awosbank.api.domain.repository.UsuarioRepository;
 import com.awosbank.api.exception.BusinessException;
+import com.awosbank.api.exception.SenhaIncorretaException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -35,19 +36,23 @@ public class EncerramentoContaService {
     private final PixKeyRepository pixKeyRepository;
     private final PasswordEncoder passwordEncoder;
     private final FormatadorUtil formatador;
+    private final ProtecaoForcaBrutaService protecao;
 
     @PersistenceContext
     private EntityManager em;
 
     @Auditado(AcaoAuditoria.CONTA_ENCERRADA)
-    @Transactional
+    @Transactional(noRollbackFor = SenhaIncorretaException.class) // a senha é o 1º passo; a falha precisa ser contada
     public void encerrar(String email, String senha) {
         Usuario usuario = usuarioRepository.findByEmail(UsuarioService.normalizarEmail(email))
                 .orElseThrow(() -> new BusinessException("Usuário não encontrado"));
 
+        protecao.exigirOperacaoLiberada(usuario.getEmail());
         if (senha == null || !passwordEncoder.matches(senha, usuario.getSenha())) {
-            throw new BusinessException("Senha incorreta");
+            protecao.registrarFalhaSenhaOp(usuario.getEmail());
+            throw new SenhaIncorretaException();
         }
+        protecao.registrarSucessoSenhaOp(usuario.getEmail());
         if (usuario.getConta() == null) {
             throw new BusinessException("Usuário não possui conta");
         }

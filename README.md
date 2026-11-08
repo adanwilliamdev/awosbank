@@ -38,6 +38,14 @@ curl -X POST http://localhost:8080/api/transferencia \
   -d '{"numeroContaDestino":"123456-7","valor":100.00,"tipo":"PIX","senha":"***"}'
 ```
 
+### 🛡️ Proteção contra força bruta
+- **Login:** após **5 senhas erradas em 15 minutos** a conta fica bloqueada por **15 minutos** — nesse período nem a senha correta entra (o Spring Security recusa com `LockedException` antes de conferir a senha). O login correto zera a contagem.
+- **Senha de confirmação das operações** (`POST /api/transferencia`, formulário de transferência e `POST /api/conta/encerrar`): mesma regra. Uma sessão roubada não consegue testar senhas indefinidamente; durante o bloqueio a resposta é `400` com o tempo restante.
+- Os dois contadores são **independentes**: errar no login não trava quem já está logado, e vice-versa.
+- A resposta do login é a mesma para e-mail inexistente, senha errada e conta bloqueada (`/login?error`), então o bloqueio **não revela** se uma conta existe.
+- Contadores ficam em `usuarios` (migration `V5`) e são atualizados com **`UPDATE` atômico** — seguros com várias instâncias e requisições paralelas. Não dependem da auditoria (que é "melhor esforço"); os logins que falharam continuam registrados nela.
+- Limites configuráveis: `SEGURANCA_MAX_TENTATIVAS`, `SEGURANCA_JANELA_MINUTOS`, `SEGURANCA_BLOQUEIO_MINUTOS` (`awosbank.seguranca.*` no `application.yml`).
+
 ### 💳 Extrato bancário
 - Consulta ao histórico de transações.
 - Filtros por período, com data inicial e final.
@@ -180,7 +188,7 @@ mvn verify     # + relatório de cobertura (target/site/jacoco/index.html)
 |---|---|
 | Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `TratamentoDeErrosTest`, `DocumentoValidatorTest` |
 | Repositórios (`@DataJpaTest`) | `RepositoriosJpaTest` |
-| Integração (contexto Spring completo) | `ApiIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest`, `CadastroConcorrenteTest` |
+| Integração (contexto Spring completo) | `ApiIntegrationTest`, `ForcaBrutaIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest`, `CadastroConcorrenteTest` |
 | Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, corrida de cadastro (e-mail/CPF duplicados), o trigger da auditoria, o backfill da `V3` e a unicidade da chave de idempotência (`V4`). Pulado automaticamente se não houver Docker. |
 
 ## 🔄 CI/CD
@@ -235,12 +243,13 @@ O AWOS Bank foi desenvolvido para praticar e demonstrar conhecimentos em:
 - [x] Documentação da API com Swagger/OpenAPI.
 - [x] Histórico de auditoria das operações.
 - [x] Idempotência nas transferências (`Idempotency-Key` + constraint única).
+- [x] Bloqueio temporário contra força bruta (login e senha de confirmação).
 - [x] Pipeline de integração e entrega contínuas (CI/CD).
 
 ## 🔮 Próximos passos
 
 - [ ] Autenticação por token (JWT) para a API, além da sessão web.
-- [ ] Rate limiting / bloqueio temporário após tentativas de login com falha (os dados já estão na auditoria).
+- [ ] Rate limiting por IP (o bloqueio atual é por conta) e notificação ao titular quando houver bloqueio.
 - [ ] Tela web para o histórico de auditoria.
 
 ---

@@ -19,7 +19,7 @@
                 <p class="auth-sub mb-0">&gt; acesse sua conta com segurança total</p>
             </div>
 
-            <div th:if="${param.error}" class="alert alert-danger py-2 small">Email ou senha inválidos.</div>
+            <div th:if="${param.error}" class="alert alert-danger py-2 small">Email ou senha inválidos, ou acesso bloqueado temporariamente por excesso de tentativas. Se errou várias vezes, aguarde alguns minutos.</div>
             <div th:if="${param.logout}" class="alert alert-success py-2 small">Logout realizado com sucesso.</div>
             <div th:if="${param.contaEncerrada}" class="alert alert-info py-2 small">Sua conta foi encerrada. Obrigado por ter sido cliente AWOS Bank.</div>
             <div th:if="${param.emailAlterado}" class="alert alert-info py-2 small">E-mail alterado. Entre novamente com o novo e-mail.</div>

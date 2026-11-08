@@ -83,7 +83,7 @@ class PostgresMigrationTest {
         Integer aplicadas = jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class);
         assertNotNull(aplicadas);
-        assertTrue(aplicadas >= 4, "esperava V1 (schema), V2 (auditoria), V3 (usuario_id) e V4 (idempotência), veio " + aplicadas);
+        assertTrue(aplicadas >= 5, "esperava V1 a V5 (schema, auditoria, usuario_id, idempotência, força bruta), veio " + aplicadas);
     }
 
     @Test

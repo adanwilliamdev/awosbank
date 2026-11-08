@@ -10,6 +10,7 @@ import com.awosbank.api.domain.repository.ContaRepository;
 import com.awosbank.api.domain.repository.TransacaoRepository;
 import com.awosbank.api.dto.TransferenciaDTO;
 import com.awosbank.api.exception.BusinessException;
+import com.awosbank.api.exception.SenhaIncorretaException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,12 +44,13 @@ class TransacaoServiceTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock PixKeyService pixKeyService;
     @Mock EntityManager em;
+    @Mock ProtecaoForcaBrutaService protecao;
 
     TransacaoService service;
 
     @BeforeEach
     void setUp() {
-        service = new TransacaoService(transacaoRepository, contaRepository, passwordEncoder, pixKeyService);
+        service = new TransacaoService(transacaoRepository, contaRepository, passwordEncoder, pixKeyService, protecao);
         ReflectionTestUtils.setField(service, "em", em);
         when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
         when(transacaoRepository.save(any(Transacao.class))).thenAnswer(i -> i.getArgument(0));
@@ -292,5 +294,51 @@ class TransacaoServiceTest {
         assertEquals("Chave de idempotência inválida",
                 mensagem(() -> service.transferir(donoDe(origem), dtoComChave("222222-2", "10.00", "x".repeat(65)))));
         assertEquals(new BigDecimal("500.00"), origem.getSaldo());
+    }
+
+    // ---------------- proteção contra força bruta ----------------
+
+    @Test
+    void senhaIncorretaEhContadaComoFalhaELancaSenhaIncorreta() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+        TransferenciaDTO d = dto("222222-2", "10.00");
+        d.setSenha("errada");
+        Usuario dono = donoDe(origem);
+        dono.setEmail("a@b.com");
+
+        assertThrows(SenhaIncorretaException.class, () -> service.transferir(dono, d));
+
+        verify(protecao).registrarFalhaSenhaOp("a@b.com");
+        verify(protecao, never()).registrarSucessoSenhaOp(any());
+    }
+
+    @Test
+    void senhaCertaZeraOContadorDeFalhas() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+        Usuario dono = donoDe(origem);
+        dono.setEmail("a@b.com");
+
+        service.transferir(dono, dto("222222-2", "10.00"));
+
+        verify(protecao).exigirOperacaoLiberada("a@b.com");
+        verify(protecao).registrarSucessoSenhaOp("a@b.com");
+        verify(protecao, never()).registrarFalhaSenhaOp(any());
+    }
+
+    @Test
+    void usuarioBloqueadoNemChegaAConferirASenhaNemMexeNosSaldos() {
+        Conta origem = conta(LOW, "111111-1", "500.00", StatusConta.ATIVA);
+        Conta destino = conta(HIGH, "222222-2", "0.00", StatusConta.ATIVA);
+        doThrow(new BusinessException("Muitas tentativas de senha incorretas. Tente novamente em 10 minutos."))
+                .when(protecao).exigirOperacaoLiberada(any());
+
+        assertTrue(mensagem(() -> service.transferir(donoDe(origem), dto("222222-2", "10.00")))
+                .contains("Muitas tentativas"));
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        assertEquals(new BigDecimal("500.00"), origem.getSaldo());
+        assertEquals(new BigDecimal("0.00"), destino.getSaldo());
     }
 }

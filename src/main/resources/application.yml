@@ -18,6 +18,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+# Bloqueio temporário contra força bruta (login e senha de confirmação das operações)
+awosbank:
+  seguranca:
+    max-tentativas: ${SEGURANCA_MAX_TENTATIVAS:5}     # falhas dentro da janela que disparam o bloqueio
+    janela-minutos: ${SEGURANCA_JANELA_MINUTOS:15}    # as falhas só contam dentro desta janela
+    bloqueio-minutos: ${SEGURANCA_BLOQUEIO_MINUTOS:15}
+
 server:
   port: 8080
   error:

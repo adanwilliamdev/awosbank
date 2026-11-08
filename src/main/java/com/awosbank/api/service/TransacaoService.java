@@ -13,6 +13,7 @@ import com.awosbank.api.dto.ExtratoFiltroDTO;
 import com.awosbank.api.dto.TransacaoView;
 import com.awosbank.api.dto.TransferenciaDTO;
 import com.awosbank.api.exception.BusinessException;
+import com.awosbank.api.exception.SenhaIncorretaException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class TransacaoService {
     private final ContaRepository contaRepository;
     private final PasswordEncoder passwordEncoder;
     private final PixKeyService pixKeyService;
+    private final ProtecaoForcaBrutaService protecao;
 
     @PersistenceContext
     private EntityManager em;
@@ -46,7 +48,7 @@ public class TransacaoService {
 
     /** Transferência informando o número da conta de destino (formulário web). */
     @Auditado(AcaoAuditoria.TRANSFERENCIA)
-    @Transactional
+    @Transactional(noRollbackFor = SenhaIncorretaException.class) // a falha de senha é validada primeiro e precisa ser contada
     public Transacao transferir(Usuario usuario, TransferenciaDTO dto) {
         validarSenha(usuario, dto.getSenha());
         Conta destino = contaRepository.findByNumeroConta(normalizar(dto.getNumeroContaDestino()))
@@ -57,7 +59,7 @@ public class TransacaoService {
 
     /** Transferência por chave PIX ou número de conta (API). */
     @Auditado(AcaoAuditoria.TRANSFERENCIA)
-    @Transactional
+    @Transactional(noRollbackFor = SenhaIncorretaException.class)
     public Transacao transferirPorIdentificador(Usuario usuario, TransferenciaDTO dto) {
         validarSenha(usuario, dto.getSenha());
         Conta destino = resolverDestino(dto.getNumeroContaDestino());
@@ -185,10 +187,18 @@ public class TransacaoService {
         return conta;
     }
 
+    /**
+     * Confere a senha de confirmação com proteção contra força bruta: bloqueado, nem a senha certa passa;
+     * errada, a falha é contada (commit junto, ver noRollbackFor) e a próxima tentativa fica mais perto do bloqueio.
+     * Deve ser o PRIMEIRO passo do método transacional: nada foi alterado antes que o commit da falha possa persistir.
+     */
     private void validarSenha(Usuario usuario, String senha) {
+        protecao.exigirOperacaoLiberada(usuario.getEmail());
         if (senha == null || !passwordEncoder.matches(senha, usuario.getSenha())) {
-            throw new BusinessException("Senha incorreta");
+            protecao.registrarFalhaSenhaOp(usuario.getEmail());
+            throw new SenhaIncorretaException();
         }
+        protecao.registrarSucessoSenhaOp(usuario.getEmail());
     }
 
     /** Valor positivo, no máximo 2 casas decimais e dentro do limite por operação. */

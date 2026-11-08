@@ -39,6 +39,7 @@ class EncerramentoContaServiceTest {
     @Mock PixKeyRepository pixKeyRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock EntityManager em;
+    @Mock ProtecaoForcaBrutaService protecao;
 
     EncerramentoContaService service;
     Conta conta;
@@ -47,7 +48,7 @@ class EncerramentoContaServiceTest {
     @BeforeEach
     void setUp() {
         service = new EncerramentoContaService(usuarioRepository, contaRepository, pixKeyRepository,
-                passwordEncoder, new FormatadorUtil());
+                passwordEncoder, new FormatadorUtil(), protecao);
         ReflectionTestUtils.setField(service, "em", em);
 
         conta = Conta.builder().id(UUID.randomUUID()).numeroConta("123456-7").agencia("0001")
