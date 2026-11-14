@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="dark" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" data-bs-theme="light" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Dashboard · AWOS Bank</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/css/style.css}">
@@ -14,14 +14,16 @@
 <div th:replace="~{fragments/layout :: toasts}"></div>
 
 <div class="container my-4">
-    <div class="status-banner mb-4">
-        <span class="status-pill"><span class="status-dot"></span>&gt; conta ativa · sessão segura</span>
-        <span>Seu banco <strong>sempre no ar</strong>, sem pausa.</span>
+    <div class="page-head mb-4">
+        <div>
+            <h4 class="mb-0">Olá, <span th:text="${usuario.primeiroNome}">Cliente</span></h4>
+            <p class="page-sub">Resumo da sua conta</p>
+        </div>
+        <span class="secure-pill"><i class="bi bi-lock-fill"></i> Sessão segura</span>
     </div>
     <div class="row g-3 mb-4">
         <div class="col-md-6">
-            <div class="card card-saldo">
-                <i class="bi bi-terminal-fill saldo-deco" aria-hidden="true"></i>
+            <div class="card card-saldo h-100">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
@@ -35,11 +37,11 @@
                         </button>
                     </div>
                     <hr class="saldo-sep">
-                    <small class="saldo-meta">
-                        Ag. <span th:text="${conta.agencia}"></span> ·
-                        Conta <span th:text="${conta.numeroConta}"></span> ·
-                        <span th:text="${conta.tipoConta.descricao}"></span>
-                    </small>
+                    <div class="saldo-meta">
+                        <div><div class="meta-k">Agência</div><div class="meta-v" th:text="${conta.agencia}"></div></div>
+                        <div><div class="meta-k">Conta</div><div class="meta-v" th:text="${conta.numeroConta}"></div></div>
+                        <div><div class="meta-k">Tipo</div><div class="meta-v" th:text="${conta.tipoConta.descricao}"></div></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -77,7 +79,7 @@
 
     <div class="card mb-4">
         <div class="card-body p-4">
-            <h5 class="fw-semibold mb-3">Entradas × Saídas <span class="mono fw-normal text-muted" style="font-size:.74rem;">(últimos 6 meses)</span></h5>
+            <h5 class="mb-3">Entradas e saídas <span class="fw-normal text-muted" style="font-size:.84rem;">últimos 6 meses</span></h5>
             <div class="chart-wrapper">
                 <canvas id="graficoMov"></canvas>
             </div>
@@ -87,9 +89,9 @@
     <div class="card">
         <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0 fw-semibold">Últimas movimentações</h5>
-                <a href="/extrato" class="mono small text-decoration-none" style="color:var(--primary-color);">
-                    Ver extrato completo <i class="bi bi-arrow-right"></i>
+                <h5 class="mb-0">Últimas movimentações</h5>
+                <a href="/extrato" class="small fw-semibold text-decoration-none">
+                    Ver extrato completo <i class="bi bi-chevron-right"></i>
                 </a>
             </div>
 
@@ -267,17 +269,17 @@
             return;
         }
 
-        Chart.defaults.color = '#64748b';
-        Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
-        Chart.defaults.font.size = 11;
-        Chart.defaults.borderColor = 'rgba(30,41,59,.8)';
+        Chart.defaults.color = '#566377';
+        Chart.defaults.font.family = "'IBM Plex Sans', system-ui, sans-serif";
+        Chart.defaults.font.size = 12;
+        Chart.defaults.borderColor = '#e1e6ed';
         new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [
-                    { label: 'Entradas', data: entradas, backgroundColor: 'rgba(16,185,129,.8)', hoverBackgroundColor: '#34d399', borderRadius: 4 },
-                    { label: 'Saídas',   data: saidas,   backgroundColor: 'rgba(244,63,94,.7)', hoverBackgroundColor: '#fb7185', borderRadius: 4 }
+                    { label: 'Entradas', data: entradas, backgroundColor: '#17663f', hoverBackgroundColor: '#124f31', borderRadius: 2 },
+                    { label: 'Saídas',   data: saidas,   backgroundColor: '#a12b2b', hoverBackgroundColor: '#7d1f1f', borderRadius: 2 }
                 ]
             },
             options: {

@@ -8,8 +8,8 @@
         <a class="navbar-brand d-flex align-items-center gap-2" th:href="@{/dashboard}">
             <span th:replace="~{fragments/layout :: logo(36)}"></span>
             <span class="d-flex flex-column">
-                <span class="brand-text">AWOS<span class="brand-sub">BANK</span></span>
-                <span class="brand-edition">PORTFOLIO EDITION</span>
+                <span class="brand-text">AWOS<span class="brand-sub">Bank</span></span>
+                
             </span>
         </a>
         <button class="navbar-toggler" aria-label="Menu" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
@@ -35,7 +35,6 @@
                 </li>
             </ul>
             <div class="d-flex align-items-center gap-3">
-                <span class="status-pill d-none d-xl-inline-flex"><span class="status-dot"></span>status: online</span>
                 <div class="dropdown notification-wrapper" th:attr="data-usuario=${usuario.id}">
                     <button type="button" class="notification-btn" id="notificacaoBtn" title="Notificações"
                             aria-label="Notificações" data-bs-toggle="dropdown" data-bs-auto-close="outside"
@@ -54,7 +53,7 @@
                         <a class="notification-footer" th:href="@{/extrato}">Ver extrato completo <i class="bi bi-chevron-right"></i></a>
                     </div>
                 </div>
-                <a th:href="@{/perfil}" class="d-flex align-items-center gap-2 text-decoration-none ps-2" style="border-left:1px solid var(--border-color);">
+                <a th:href="@{/perfil}" class="d-flex align-items-center gap-2 text-decoration-none ps-2" style="border-left:1px solid rgba(255,255,255,.25);">
                     <div class="user-avatar" th:text="${usuario.iniciais}">CT</div>
                     <span class="nav-username small d-none d-md-inline"
                           th:text="${usuario.primeiroNome}">Cliente</span>
@@ -69,10 +68,10 @@
     </div>
 </nav>
 
-<!-- LOGO: ícone de terminal em caixa esmeralda -->
+<!-- LOGO: monograma em serifa sobre caixa clara com filete de latão -->
 <span th:fragment="logo(size)" class="awos-logo" role="img" aria-label="AWOS Bank">
     <span class="logo-box" th:style="'width:'+${size}+'px;height:'+${size}+'px;font-size:'+${size * 0.55}+'px'">
-        <i class="bi bi-terminal-fill"></i>
+        <span class="logo-mark">A</span>
     </span>
 </span>
 
@@ -88,7 +87,8 @@
     <div class="container d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
         <div>© 2026 AWOS BANK Inc. Todos os direitos reservados.</div>
         <div class="d-flex align-items-center gap-3">
-            <span class="ok">&gt; backend_ok</span><span>•</span><span class="ok">&gt; database_online</span>
+            <span class="ok"><i class="bi bi-lock-fill"></i> Conexão criptografada</span>
+            <span class="ok"><i class="bi bi-shield-check"></i> Ambiente monitorado</span>
         </div>
     </div>
 </footer>
