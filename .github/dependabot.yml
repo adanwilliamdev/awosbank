@@ -13,3 +13,10 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # O projeto roda em Java 17 (pom.xml) e Spring Boot 3.2.x: não deixe o Dependabot trocar a versão do JDK/JRE
+    # na imagem (ex.: eclipse-temurin 17 -> 25). Atualizações de patch continuam normais.
+    ignore:
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "maven"
+        update-types: ["version-update:semver-major"]
