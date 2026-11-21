@@ -9,6 +9,20 @@ spring:
     username: ${DB_USERNAME:awosbank}
     password: ${DB_PASSWORD:awosbank}
     driver-class-name: org.postgresql.Driver
+    # Pool pequeno: em ambiente serverless cada instância abre o próprio pool e bancos gerenciados
+    # (Neon, Supabase) têm limite de conexões. Ajuste por variável se precisar.
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: 10000
+      idle-timeout: 120000
+      max-lifetime: 600000
+  # Sessão guardada no banco (tabelas criadas pela migration V6)
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
+      cleanup-cron: "0 */10 * * * *"
   jpa:
     hibernate:
       # O schema é de responsabilidade do Flyway (src/main/resources/db/migration).
@@ -32,12 +46,21 @@ awosbank:
       janela-segundos: ${RATE_LIMIT_JANELA_SEGUNDOS:60}
 
 server:
-  port: 8080
+  # A plataforma injeta PORT (no Vercel, defina PORT=8080 nas variáveis do projeto)
+  port: ${PORT:8080}
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/javascript,application/json
+    min-response-size: 1024
   error:
     whitelabel:
       enabled: false
   # Atrás de proxy reverso/load balancer use "framework" para registrar o IP real do cliente na auditoria.
   forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+
+# Tempo para encerrar requisições em andamento quando o Vercel envia SIGTERM (grace period de 30 s)
+spring.lifecycle.timeout-per-shutdown-phase: 20s
 
 management:
   endpoints:
@@ -84,6 +107,12 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     show-sql: false
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 7d
+          cache-public: true
 
 springdoc:
   api-docs:
@@ -92,6 +121,9 @@ springdoc:
     enabled: false
 
 server:
+  # O Vercel termina o HTTPS e repassa X-Forwarded-*: sem isso o IP da auditoria/rate limit seria o do proxy
+  # e os redirects sairiam como http://
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:framework}
   servlet:
     session:
       cookie:

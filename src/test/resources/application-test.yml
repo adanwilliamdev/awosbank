@@ -9,6 +9,9 @@ spring:
     password: ""
   flyway:
     enabled: false
+  # Testes rápidos (H2, sem Flyway): sessão em memória
+  session:
+    store-type: none
   jpa:
     hibernate:
       ddl-auto: create-drop

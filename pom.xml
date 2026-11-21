@@ -58,6 +58,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
+        <!-- Sessão HTTP no PostgreSQL: no Vercel as instâncias escalam a zero/replicam e a sessão em memória se perderia -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
+        </dependency>
         <!-- PostgreSQL + migrações versionadas -->
         <dependency>
             <groupId>org.postgresql</groupId>

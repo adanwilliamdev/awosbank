@@ -1,0 +1,11 @@
+.idea/
+.github/
+.git/
+target/
+*.iml
+*.log
+*.zip
+.env
+.env.*
+!.env.example
+docker-compose*.yml

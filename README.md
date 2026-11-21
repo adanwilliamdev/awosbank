@@ -173,6 +173,36 @@ O schema é criado e versionado pelo **Flyway** (`src/main/resources/db/migratio
 
 ---
 
+## ▲ Deploy no Vercel
+
+O Vercel executa a aplicação como **container** (Container Runtime, beta) a partir do `Dockerfile` da raiz. O banco **não** roda no Vercel: use um PostgreSQL gerenciado (ex.: [Neon](https://neon.tech), região `sa-east-1` combina com `gru1`, configurada em `vercel.json`).
+
+1. Crie o banco e copie host, usuário e senha.
+2. Suba o repositório no GitHub e importe em **vercel.com/new** (o preset *Container* é detectado pelo `Dockerfile`).
+3. Em **Settings → Environment Variables**, defina:
+
+| Variável | Valor |
+| --- | --- |
+| `PORT` | `8080` (o padrão do Vercel é 80; a imagem roda sem root) |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `DB_URL` | `jdbc:postgresql://<host>/<banco>?sslmode=require` |
+| `DB_USERNAME` / `DB_PASSWORD` | credenciais do banco |
+
+4. Faça o deploy. O Flyway cria o schema (inclusive as tabelas de sessão, `V6`) na primeira subida.
+
+**O que foi ajustado para o Vercel**
+- Sessão HTTP no PostgreSQL (Spring Session JDBC): sem isso o cliente seria deslogado sempre que a instância reiniciasse ou outra assumisse.
+- `server.port` lê `PORT`; encerramento gracioso (o Vercel envia `SIGTERM` com 30 s de tolerância); `X-Forwarded-*` respeitado no perfil `prod` (IP real na auditoria e redirects em HTTPS).
+- Pool de conexões pequeno (`DB_POOL_MAX`, padrão 5) para não esgotar o limite do banco gerenciado.
+- Imagem com camadas do Spring Boot e JVM ajustada para partida a frio (SerialGC, C1).
+
+**Limitações a conhecer**
+- Sem tráfego por 5 min em produção a instância é desligada; a próxima requisição paga a partida da JVM (alguns segundos).
+- O rate limit por IP é em memória: vale por instância, não global. A proteção contra força bruta (no banco) é global.
+- O perfil `prod` não cria o usuário de demonstração (só o `dev` cria).
+
+---
+
 ## 📖 Documentação da API (Swagger / OpenAPI)
 
 Com a aplicação rodando (perfil `dev`):
