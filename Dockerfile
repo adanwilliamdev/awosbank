@@ -12,7 +12,7 @@ RUN mvn -B -q -DskipTests package \
     && java -Djarmode=layertools -jar target/*.jar extract --destination /app/layers
 
 # ---------- Estágio 2: runtime enxuto (somente JRE, usuário sem privilégios) ----------
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:24-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S awos && adduser -S awos -G awos
