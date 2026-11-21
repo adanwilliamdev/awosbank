@@ -24,6 +24,12 @@ awosbank:
     max-tentativas: ${SEGURANCA_MAX_TENTATIVAS:5}     # falhas dentro da janela que disparam o bloqueio
     janela-minutos: ${SEGURANCA_JANELA_MINUTOS:15}    # as falhas só contam dentro desta janela
     bloqueio-minutos: ${SEGURANCA_BLOQUEIO_MINUTOS:15}
+    # Rate limit por IP (em memória, janela deslizante). Recusados: 429 na API; nos formulários, volta à tela com aviso.
+    rate-limit:
+      habilitado: ${RATE_LIMIT_HABILITADO:true}
+      max-autenticacao: ${RATE_LIMIT_MAX_AUTENTICACAO:10}   # POST /login e POST /cadastro por IP, por janela
+      max-api: ${RATE_LIMIT_MAX_API:120}                    # /api/** por IP, por janela
+      janela-segundos: ${RATE_LIMIT_JANELA_SEGUNDOS:60}
 
 server:
   port: 8080

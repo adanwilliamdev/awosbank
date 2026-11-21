@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -156,6 +157,33 @@ class AuditoriaServiceTest {
         Page<Auditoria> resultado = service.listarDoUsuario(null, PageRequest.of(0, 10));
 
         assertTrue(resultado.isEmpty());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void listarSoFalhasConsultaORepositorioComSucessoFalso() {
+        UUID id = UUID.randomUUID();
+        Pageable pagina = PageRequest.of(0, 10);
+        Page<Auditoria> esperado = new PageImpl<>(List.of());
+        when(repository.findByUsuarioIdAndSucessoOrderByDataHoraDesc(id, false, pagina)).thenReturn(esperado);
+
+        assertSame(esperado, service.listarDoUsuario(id, true, pagina));
+    }
+
+    @Test
+    void listarSemFiltroDelegaParaOHistoricoCompleto() {
+        UUID id = UUID.randomUUID();
+        Pageable pagina = PageRequest.of(0, 10);
+        Page<Auditoria> esperado = new PageImpl<>(List.of());
+        when(repository.findByUsuarioIdOrderByDataHoraDesc(id, pagina)).thenReturn(esperado);
+
+        assertSame(esperado, service.listarDoUsuario(id, false, pagina));
+        verify(repository, never()).findByUsuarioIdAndSucessoOrderByDataHoraDesc(any(), anyBoolean(), any());
+    }
+
+    @Test
+    void listarFalhasComIdNuloNuncaConsultaORepositorio() {
+        assertTrue(service.listarDoUsuario(null, true, PageRequest.of(0, 10)).isEmpty());
         verifyNoInteractions(repository);
     }
 }

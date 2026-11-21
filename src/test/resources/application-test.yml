@@ -17,3 +17,10 @@ spring:
 springdoc:
   api-docs:
     enabled: true
+
+# Os testes fazem dezenas de logins/chamadas do mesmo IP (127.0.0.1): o rate limit fica desligado aqui e é
+# exercitado à parte (RateLimitIntegrationTest liga com limites pequenos).
+awosbank:
+  seguranca:
+    rate-limit:
+      habilitado: false

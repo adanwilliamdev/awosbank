@@ -17,6 +17,7 @@
             <p class="auth-sub mb-4">Preencha os dados abaixo para abrir sua conta.</p>
 
             <div th:if="${erro}" class="alert alert-danger py-2" th:text="${erro}"></div>
+            <div th:if="${param.limite}" class="alert alert-danger py-2">Muitas tentativas em pouco tempo a partir deste endereço. Aguarde cerca de um minuto e tente novamente.</div>
 
             <form th:action="@{/cadastro}" th:object="${cadastroDTO}" method="post" novalidate>
                 <div class="mb-3">

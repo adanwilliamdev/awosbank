@@ -46,6 +46,15 @@ curl -X POST http://localhost:8080/api/transferencia \
 - Contadores ficam em `usuarios` (migration `V5`) e são atualizados com **`UPDATE` atômico** — seguros com várias instâncias e requisições paralelas. Não dependem da auditoria (que é "melhor esforço"); os logins que falharam continuam registrados nela.
 - Limites configuráveis: `SEGURANCA_MAX_TENTATIVAS`, `SEGURANCA_JANELA_MINUTOS`, `SEGURANCA_BLOQUEIO_MINUTOS` (`awosbank.seguranca.*` no `application.yml`).
 
+### 🚦 Rate limiting por IP
+- Complementa o bloqueio por conta: limita **quantas requisições um mesmo IP** faz em `POST /login`, `POST /cadastro` (padrão **10 por minuto**) e em `/api/**` (padrão **120 por minuto**). Isso barra quem testa uma senha em várias contas, algo que o bloqueio por conta sozinho não vê.
+- Janela deslizante em memória. Requisições recusadas **não** entram na contagem, então o bloqueio não se prolonga sozinho: acaba quando a requisição aceita mais antiga sai da janela.
+- Na API a resposta é `429` com o header `Retry-After` e o envelope JSON padrão; nos formulários web o cliente volta para `/login?limite` ou `/cadastro?limite` com um aviso, e a senha nem chega a ser conferida.
+- O filtro roda **dentro da cadeia do Spring Security**, antes do filtro de login (um filtro de servlet comum rodaria depois e nunca veria o `POST /login`).
+- Configurável: `RATE_LIMIT_HABILITADO`, `RATE_LIMIT_MAX_AUTENTICACAO`, `RATE_LIMIT_MAX_API`, `RATE_LIMIT_JANELA_SEGUNDOS` (`awosbank.seguranca.rate-limit.*`).
+- O IP é o `getRemoteAddr()`. Atrás de proxy reverso defina `FORWARD_HEADERS_STRATEGY=framework`; sem isso todos os clientes aparecem com o IP do proxy e dividem o mesmo limite.
+- **Limitação:** o estado fica na memória da instância. Com N instâncias o limite efetivo vira N × o configurado; para um limite global, troque o armazenamento por Redis.
+
 ### 💳 Extrato bancário
 - Consulta ao histórico de transações.
 - Filtros por período, com data inicial e final.
@@ -65,10 +74,6 @@ curl -X POST http://localhost:8080/api/transferencia \
 
 ### 🔔 Notificações
 - O sino da barra superior abre um painel com as últimas movimentações da conta (`GET /api/notificacoes`), com indicador de não lidas.
-- **Exclusão (encerramento) da conta bancária**: exige senha e saldo zerado (`POST /api/conta/encerrar`). A conta fica `ENCERRADA` e o histórico de transações é preservado; login e chaves PIX são removidos.
-
-### 🔔 Notificações
-- O sino da barra superior abre um painel com as últimas movimentações da conta (`GET /api/notificacoes`), com indicador de não lidas.
 
 ### 🕵️ Histórico de auditoria
 - Registro de **cadastro, login (sucesso e falha), transferências, depósitos, saques, alterações de perfil, chaves PIX e encerramento de conta**.
@@ -76,7 +81,7 @@ curl -X POST http://localhost:8080/api/transferencia \
 - Cada registro guarda usuário, ação, resultado, detalhes e IP de origem. **Nunca** senhas.
 - O histórico pertence ao **ID do usuário** (`auditoria.usuario_id`), não ao e-mail: ao encerrar a conta o e-mail é liberado, e quem se cadastrar depois com ele **não** herda o histórico anterior. O registro do encerramento é preservado (sem FK, vinculado ao ID da conta encerrada).
 - Tabela *append-only*: um trigger do PostgreSQL bloqueia `UPDATE` e `DELETE`.
-- Consulta pelo próprio cliente em `GET /api/auditoria`.
+- Consulta pelo próprio cliente em `GET /api/auditoria` e na tela **Atividade** (`/auditoria`, item "Atividade" do menu): lista paginada, com filtro "Somente falhas" para o cliente reconhecer acessos e tentativas que não foram dele.
 
 ### 🧾 Comprovantes e tratamento de erros
 - Geração de comprovantes de transações.
@@ -151,7 +156,7 @@ docker compose up -d db      # PostgreSQL em localhost:5432
 mvn spring-boot:run          # perfil "dev": cria o schema via Flyway e semeia o usuário de demonstração
 ```
 
-O schema é criado e versionado pelo **Flyway** (`src/main/resources/db/migration`). O Hibernate roda com `ddl-auto=validate`: se uma entidade divergir das migrations, a aplicação não sobe. Para mudar o banco, crie uma nova migration (`V4__descricao.sql`) — nunca edite uma já aplicada.
+O schema é criado e versionado pelo **Flyway** (`src/main/resources/db/migration`). O Hibernate roda com `ddl-auto=validate`: se uma entidade divergir das migrations, a aplicação não sobe. Para mudar o banco, crie uma nova migration (a próxima é a `V6__descricao.sql`) — nunca edite uma já aplicada.
 
 ### Variáveis de ambiente
 
@@ -186,9 +191,9 @@ mvn verify     # + relatório de cobertura (target/site/jacoco/index.html)
 
 | Tipo | Classes |
 |---|---|
-| Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `TratamentoDeErrosTest`, `DocumentoValidatorTest` |
+| Unitários (JUnit 5 + Mockito) | `TransacaoServiceTest`, `UsuarioServiceTest`, `ContaServiceTest`, `PixKeyServiceTest`, `AuditoriaServiceTest`, `AuditoriaAspectTest`, `TratamentoDeErrosTest`, `DocumentoValidatorTest`, `RateLimitServiceTest` |
 | Repositórios (`@DataJpaTest`) | `RepositoriosJpaTest` |
-| Integração (contexto Spring completo) | `ApiIntegrationTest`, `ForcaBrutaIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest`, `CadastroConcorrenteTest` |
+| Integração (contexto Spring completo) | `ApiIntegrationTest`, `ForcaBrutaIntegrationTest`, `AuditoriaIntegrationTest`, `ErroInesperadoIntegrationTest`, `SegurancaWebTest`, `TransferenciaConcorrenciaTest`, `CadastroConcorrenteTest`, `RateLimitIntegrationTest`, `AuditoriaWebTest` |
 | Integração com **PostgreSQL real** (Testcontainers) | `PostgresMigrationTest` — valida as migrations contra as entidades, locks, constraints, corrida de cadastro (e-mail/CPF duplicados), o trigger da auditoria, o backfill da `V3` e a unicidade da chave de idempotência (`V4`). Pulado automaticamente se não houver Docker. |
 
 ## 🔄 CI/CD
@@ -244,13 +249,16 @@ O AWOS Bank foi desenvolvido para praticar e demonstrar conhecimentos em:
 - [x] Histórico de auditoria das operações.
 - [x] Idempotência nas transferências (`Idempotency-Key` + constraint única).
 - [x] Bloqueio temporário contra força bruta (login e senha de confirmação).
+- [x] Rate limiting por IP (login, cadastro e API).
+- [x] Tela web para o histórico de auditoria ("Atividade").
 - [x] Pipeline de integração e entrega contínuas (CI/CD).
 
 ## 🔮 Próximos passos
 
 - [ ] Autenticação por token (JWT) para a API, além da sessão web.
-- [ ] Rate limiting por IP (o bloqueio atual é por conta) e notificação ao titular quando houver bloqueio.
-- [ ] Tela web para o histórico de auditoria.
+- [ ] Notificar o titular (e-mail) quando a conta for bloqueada por força bruta.
+- [ ] Rate limit distribuído (Redis) para quando houver mais de uma instância.
+- [ ] Auditar também as recusas por rate limit (hoje vão só para o log).
 
 ---
 

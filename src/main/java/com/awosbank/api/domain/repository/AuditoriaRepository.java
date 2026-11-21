@@ -19,6 +19,9 @@ public interface AuditoriaRepository extends JpaRepository<Auditoria, UUID> {
      */
     Page<Auditoria> findByUsuarioIdOrderByDataHoraDesc(UUID usuarioId, Pageable pageable);
 
+    /** Como {@link #findByUsuarioIdOrderByDataHoraDesc}, só os registros com o resultado pedido (ex.: apenas falhas). */
+    Page<Auditoria> findByUsuarioIdAndSucessoOrderByDataHoraDesc(UUID usuarioId, boolean sucesso, Pageable pageable);
+
     /** Contagem por e-mail do ator (inclui tentativas de login de e-mails sem usuário). Uso interno/testes. */
     long countByUsuarioEmailAndAcao(String usuarioEmail, AcaoAuditoria acao);
 }

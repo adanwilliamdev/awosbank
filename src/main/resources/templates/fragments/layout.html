@@ -30,6 +30,10 @@
                        th:href="@{/pix}"><i class="bi bi-qr-code-scan"></i> PIX</a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" th:classappend="${active=='auditoria'}?'active fw-bold':''"
+                       th:href="@{/auditoria}"><i class="bi bi-shield-check"></i> Atividade</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" th:classappend="${active=='perfil'}?'active fw-bold':''"
                        th:href="@{/perfil}"><i class="bi bi-person-fill"></i> Perfil</a>
                 </li>

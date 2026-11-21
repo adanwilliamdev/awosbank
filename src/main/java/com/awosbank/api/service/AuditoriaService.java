@@ -97,6 +97,14 @@ public class AuditoriaService {
         return repository.findByUsuarioIdOrderByDataHoraDesc(usuarioId, pageable);
     }
 
+    /** Histórico do próprio usuário; com {@code apenasFalhas} lista só as tentativas que falharam. */
+    @Transactional(readOnly = true)
+    public Page<Auditoria> listarDoUsuario(UUID usuarioId, boolean apenasFalhas, Pageable pageable) {
+        if (!apenasFalhas) return listarDoUsuario(usuarioId, pageable);
+        if (usuarioId == null) return Page.empty(pageable);
+        return repository.findByUsuarioIdAndSucessoOrderByDataHoraDesc(usuarioId, false, pageable);
+    }
+
     private static String normalizarEmail(String email) {
         String e = (email == null || email.isBlank()) ? "anonimo" : UsuarioService.normalizarEmail(email);
         return truncar(e, MAX_EMAIL);
