@@ -9,9 +9,10 @@ spring:
     password: ""
   flyway:
     enabled: false
-  # Testes rápidos (H2, sem Flyway): sessão em memória
-  session:
-    store-type: none
+  # Testes rápidos (H2, sem Flyway, sem tabelas SPRING_SESSION): sessão em memória, como antes.
+  # (spring.session.store-type foi removida no Spring Boot 3, por isso a exclusão da auto-configuração.)
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
   jpa:
     hibernate:
       ddl-auto: create-drop

@@ -19,7 +19,6 @@ spring:
       max-lifetime: 600000
   # Sessão guardada no banco (tabelas criadas pela migration V6)
   session:
-    store-type: jdbc
     jdbc:
       initialize-schema: never
       cleanup-cron: "0 */10 * * * *"
