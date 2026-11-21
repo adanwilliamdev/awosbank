@@ -4,7 +4,7 @@ Sistema de **Internet Banking desenvolvido em Java e Spring Boot**, com interfac
 
 O projeto simula a experiência de um banco digital, combinando processamento no backend com uma interface responsiva desenvolvida com Thymeleaf e Bootstrap.
 
-🌐 **Demo online:** [https://awosbank.onrender.com/](https://awosbank.vercel.app/)
+🌐 **Demo online:** [https://awosbank.vercel.app/](https://awosbank.vercel.app/)
 
 
 ![Java](https://img.shields.io/badge/Java-17-orange?style=flat&logo=openjdk) ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-6DB33F?style=flat&logo=springboot) ![Thymeleaf](https://img.shields.io/badge/Thymeleaf-3.1-005F0F?style=flat&logo=thymeleaf) ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-7952B3?style=flat&logo=bootstrap) ![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=flat&logo=javascript) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white) ![OpenAPI](https://img.shields.io/badge/OpenAPI-Swagger-85EA2D?style=flat&logo=swagger&logoColor=black) ![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat&logo=githubactions&logoColor=white)
